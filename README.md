@@ -24,31 +24,34 @@ sudo make install
 sudo nano /usr/local/sbin/borg/borg.env
 # Set BORG_PASSPHRASE, BORG_REPO, SOURCE_PATH, ZFS_DATASET, REPO_DATASET (optional), LOG_DIR, MAIL_TO/FROM, MAIL_ON_SUCCESS/MAIL_ON_FAILURE
 ```
-5) Create storage (repo path must be inside the intended dataset/mount):
+5) Create storage:
 - ZFS example:
 ```bash
 sudo zfs create tank/Secure/Borg
 ```
-- ext4 example (dedicated block device `/dev/sdX1`):
+- ext4 example:
 ```bash
-sudo mkfs.ext4 /dev/sdX1
 sudo mkdir -p /tank/Secure/Borg
-echo "/dev/sdX1 /tank/Secure/Borg ext4 defaults 0 2" | sudo tee -a /etc/fstab
 ```
 6) Initialize the encrypted Borg repo (one-time per path):
 ```bash
-export BORG_PASSPHRASE='same-passphrase-set-in-borg.env'
 sudo borg init --encryption=repokey-blake2 /tank/Secure/Borg/backup-repo
-sudo borg info /tank/Secure/Borg/backup-repo
 ```
+> Use the same passphrase that you set in the borg.env.
+
 7) Export the repo key (store off-host securely):
 ```bash
-sudo borg key export /tank/Secure/Borg/backup-repo /root/borg-key.txt
-sudo chmod 600 /root/borg-key.txt && sudo chown root:root /root/borg-key.txt
-# Optional paper copy:
-sudo borg key export --paper /tank/Secure/Borg/backup-repo > /root/borg-key-paper.txt
-sudo chmod 600 /root/borg-key-paper.txt && sudo chown root:root /root/borg-key-paper.txt
+sudo borg key export /tank/Secure/Borg/backup-repo ~/borg-key.txt
 ```
+Optional paper copy:
+```bash
+sudo borg key export --paper /tank/Secure/Borg/backup-repo > ~/borg-key-paper.txt
+```
+> Encrypted repos need key material plus the passphrase. Export after init/changes and store off-host.
+> Keep keys off the backup host (encrypted USB, password manager secure file, printed and stored securely). Do NOT store with the r
+epo, on the same dataset, in Git, or in unencrypted cloud storage.
+> Checklist: key exported ✅ / passphrase recorded ✅ / restore tested ✅
+
 8) Optional manual test run:
 ```bash
 sudo systemctl start borg-backup.service
@@ -63,17 +66,26 @@ sudo make check
 ```
 
 ## Validate and test
-- Status: `systemctl status borg-backup.service borg-check.service borg-check-verify.service` and `systemctl list-timers borg-*`
-- Logs: `/var/log/borg/backup_YYYY-MM-DD.log`, `check_YYYY-MM-DD.log`, `check_verify_YYYY-MM-DD.log`; journal via `journalctl -u borg-backup.service -n 100`
-- Restore test (recommended periodically):
+> Status: `systemctl status borg-backup.service borg-check.service borg-check-verify.service` and `systemctl list-timers borg-*`
+> Logs: `/var/log/borg/backup_YYYY-MM-DD.log`, `check_YYYY-MM-DD.log`, `check_verify_YYYY-MM-DD.log`; journal via `journalctl -u borg-backup.service -n 100`
+
+Restore test (recommended periodically):
+
+1) Make the restore directory.
 ```bash
-export BORG_PASSPHRASE='your-passphrase'
 mkdir -p /restore/tmp/borg-test
-borg list /tank/Secure/Borg/backup-repo
-borg list /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30
-cd /restore/tmp/borg-test
-borg extract /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30
 ```
+2) List the Borg repos.
+```bash
+sudo borg list /tank/Secure/Borg/backup-repo
+```
+3) Restore a Borg repo from the list.
+```bash
+cd /restore/tmp/borg-test
+sudo borg extract /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30
+```
+> Use the same passphrase that you set in the borg.env.
+> After restore: verify permissions/ownership and integrity; avoid overwriting live data.
 
 ## Repository layout
 - `scripts/`: Bash entrypoints (`borg_nightly.sh`, `borg_check.sh`, `borg_check_verify.sh`).
@@ -107,30 +119,6 @@ sudo systemctl start borg-backup.service
 ```
 > Pros: keeps passphrase outside flat files. Cons: unattended timers require GPG key+store unlocked at boot.
 
-## Borg Key Export (CRITICAL)
-- Encrypted repos need key material plus the passphrase. Export after init/changes and store off-host.
-```bash
-sudo borg key export /tank/Secure/Borg/backup-repo /root/borg-key.txt
-sudo chmod 600 /root/borg-key.txt && sudo chown root:root /root/borg-key.txt
-sudo borg key export --paper /tank/Secure/Borg/backup-repo > /root/borg-key-paper.txt
-sudo chmod 600 /root/borg-key-paper.txt && sudo chown root:root /root/borg-key-paper.txt
-```
-> Keep keys off the backup host (encrypted USB, password manager secure file, printed and stored securely). Do NOT store with the repo, on the same dataset, in Git, or in unencrypted cloud storage.
-> Checklist: key exported ✅ / passphrase recorded ✅ / restore tested ✅
-
-## Restore Instructions
-- Always restore into a new/empty directory and verify before touching live data.
-```bash
-export BORG_PASSPHRASE='your-passphrase'
-mkdir -p /restore/tmp/borg-test
-borg list /tank/Secure/Borg/backup-repo
-borg list /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30
-cd /restore/tmp/borg-test
-borg extract /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30
-borg extract /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30 path/inside/archive
-```
-> After restore: verify permissions/ownership and integrity; avoid overwriting live data—copy validated files during a planned window.
-
 ## Disaster Recovery Requirements
 - To decrypt/restore:
   - Borg repo copy (`/tank/Secure/Borg/backup-repo` or replica)
@@ -146,7 +134,7 @@ borg extract /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30 path/
   - Review `/var/log/borg/` and `systemctl list-timers borg-*`
 
 ## Troubleshooting
-- Dataset absent: create the dataset (ZFS `zfs create ...` or mkfs+fstab for ext4) at the intended path, then rerun.
+- Dataset absent: create the dataset (ZFS `zfs create ...` or mkdir for ext4) at the intended path, then rerun.
 - Missing env or wrong perms: ensure `/usr/local/sbin/borg/borg.env` exists, has `BORG_PASSPHRASE`, and is `0600 root:root`; rerun `sudo make install` if needed and use `sudo make check`.
 
 ## Makefile targets (common)
