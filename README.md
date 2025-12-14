@@ -54,21 +54,20 @@ sudo borg key export --paper /tank/Secure/Borg/backup-repo > ~/borg-key-paper.tx
 > Checklist: key exported ✅ / passphrase recorded ✅ / restore tested ✅
 
 8) Optional manual test run:
->Tip: use tmux to avoid interruption if SSH drops:
 
+1) Use tmux to avoid interruption if session drops:
 ```bash
 tmux new -s borg-test
 ```
-**Split pane:** `Ctrl-b` then `"`
+2) Run manual backup in pane 1:
 ```bash
 sudo systemctl start borg-backup.service
 ```
-> Run manual backup in pane 1
-
+3) **Split pane:** `Ctrl-b` then `"`
+Follow backup progress in pane 2
 ```bash
 tail -f /var/log/borg/backup_$(date +%F).log
 ```
-> Follow backup progress in pane 2
 
 > **Detach:** `Ctrl-b` then `d`
 
