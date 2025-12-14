@@ -51,8 +51,7 @@ sudo make install
 ```bash
 sudo nano /usr/local/sbin/borg/borg.env
 ```
-> Set BORG_PASSPHRASE, BORG_REPO, SOURCE_PATH, ZFS_DATASET, REPO_DATASET (if used), LO
-G_DIR, MAIL_TO/FROM
+> Set BORG_PASSPHRASE, BORG_REPO, SOURCE_PATH, ZFS_DATASET, REPO_DATASET (if used), LOG_DIR, MAIL_TO/FROM
 
 3) Optional manual test run:
 ```bash
