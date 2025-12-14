@@ -5,6 +5,7 @@
 borg.env
 *.env
 *.env.local
+borg-key*.txt
 
 # Logs
 *.log
