@@ -1,0 +1,15 @@
+[Unit]
+Description=Weekly Borg Repository Integrity Check
+# Make sure backup jobs aren’t running at the same time
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/usr/local/sbin/borg/borg.env
+ExecStart=/usr/local/sbin/borg/borg_check.sh
+User=root
+Group=root
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

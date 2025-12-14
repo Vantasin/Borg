@@ -1,0 +1,14 @@
+[Unit]
+Description=Monthly Borg Repository Data Verification (--verify-data)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/usr/local/sbin/borg/borg.env
+ExecStart=/usr/local/sbin/borg/borg_check_verify.sh
+User=root
+Group=root
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

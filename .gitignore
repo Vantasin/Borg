@@ -1,0 +1,10 @@
+# OS artifacts
+.DS_Store
+
+# Secrets / local config
+borg.env
+*.env
+*.env.local
+
+# Logs
+*.log

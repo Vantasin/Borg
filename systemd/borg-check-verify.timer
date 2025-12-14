@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Borg verify-data check monthly on the 15th at 04:45
+
+[Timer]
+OnCalendar=*-*-15 04:45:00
+Persistent=true
+Unit=borg-check-verify.service
+
+[Install]
+WantedBy=timers.target

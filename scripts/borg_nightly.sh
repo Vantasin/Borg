@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+############################################################
+# Optional env file load (services use EnvironmentFile)
+############################################################
+BORG_ENV_PATH=${BORG_ENV_PATH:-/usr/local/sbin/borg/borg.env}
+if [ -z "${BORG_ENV_LOADED:-}" ] && [ -f "${BORG_ENV_PATH}" ]; then
+  # shellcheck disable=SC1091
+  source "${BORG_ENV_PATH}"
+  BORG_ENV_LOADED=1
+fi
+
+LEGACY_BORG_ENV=${LEGACY_BORG_ENV:-/tank/Secure/Secrets/.borg_env}
+if [ -z "${BORG_ENV_LOADED:-}" ] && [ -z "${BORG_PASSPHRASE:-}" ] && [ -f "${LEGACY_BORG_ENV}" ]; then
+  # shellcheck disable=SC1091
+  source "${LEGACY_BORG_ENV}"
+  BORG_ENV_LOADED=1
+fi
+
+############################################################
+# Config (overridable via env)
+############################################################
+ZFS_DATASET="${ZFS_DATASET:-tank/Secure/backup}"
+SOURCE_PATH="${SOURCE_PATH:-/tank/Secure/backup}"
+BORG_REPO="${BORG_REPO:-/tank/Secure/Borg/backup-repo}"
+REPO_DATASET="${REPO_DATASET:-}"
+
+SNAP_NAME="${SNAP_NAME:-borg_$(date +%Y-%m-%d_%H-%M)}"
+
+LOG_DIR="${LOG_DIR:-/var/log/borg}"
+LOG_FILE="${LOG_FILE:-${LOG_DIR}/backup_$(date +%F).log}"
+
+MAIL_TO="${MAIL_TO:-alerts@example.com}"
+MAIL_FROM="${MAIL_FROM:-borg@localhost}"
+
+: "${BORG_PASSPHRASE:?BORG_PASSPHRASE is required}"
+
+############################################################
+# Prepare Logging
+############################################################
+mkdir -p "${LOG_DIR}"
+exec >> "${LOG_FILE}" 2>&1
+
+############################################################
+# Ensure required datasets are mounted before running
+############################################################
+require_mounted() {
+  local path="$1"
+  local label="$2"
+
+  if command -v findmnt >/dev/null 2>&1; then
+    if ! findmnt -T "${path}" >/dev/null 2>&1; then
+      echo "${label} (${path}) not mounted; skipping run."
+      exit 0
+    fi
+  fi
+}
+
+if ! command -v zfs >/dev/null 2>&1; then
+  echo "zfs command not found; skipping run."
+  exit 0
+fi
+
+if ! zfs list -H -o name "${ZFS_DATASET}" >/dev/null 2>&1; then
+  echo "ZFS dataset ${ZFS_DATASET} unavailable; skipping run."
+  exit 0
+fi
+
+require_mounted "${SOURCE_PATH}" "Source path"
+
+if [ -n "${REPO_DATASET}" ] && ! zfs list -H -o name "${REPO_DATASET}" >/dev/null 2>&1; then
+  echo "ZFS dataset ${REPO_DATASET} unavailable; skipping run."
+  exit 0
+fi
+
+require_mounted "${BORG_REPO}" "Borg repo parent"
+
+if [ ! -d "${BORG_REPO}" ]; then
+  echo "Borg repo ${BORG_REPO} unavailable; skipping run."
+  exit 0
+fi
+
+############################################################
+# Email Helper (msmtp)
+############################################################
+send_mail() {
+  local subject="$1"
+  local body="$2"
+
+  printf "From: %s\nTo: %s\nSubject: %s\n\n%s\n" \
+    "${MAIL_FROM}" "${MAIL_TO}" "${subject}" "${body}" \
+    | /usr/bin/msmtp -a default "${MAIL_TO}"
+}
+
+############################################################
+# Begin Backup
+############################################################
+echo "===== Borg Backup Started: $(date) ====="
+
+############################################################
+# 1. Create ZFS Snapshot
+############################################################
+echo "Creating snapshot ${ZFS_DATASET}@${SNAP_NAME}"
+zfs snapshot -r "${ZFS_DATASET}@${SNAP_NAME}"
+
+############################################################
+# 2. Run Borg Backup
+############################################################
+echo "Running Borg backup..."
+
+set +e
+borg create \
+  --stats \
+  --compression zstd,6 \
+  "${BORG_REPO}::backup-{hostname}-{now}" \
+  "${SOURCE_PATH}" \
+  --exclude "${SOURCE_PATH}/.zfs"
+
+BORG_EXIT=$?
+set -e
+
+############################################################
+# 3. Prune Old Backups
+############################################################
+echo "Pruning old Borg archives..."
+
+set +e
+borg prune -v "${BORG_REPO}" \
+  --keep-daily=7 \
+  --keep-weekly=4 \
+  --keep-monthly=12
+PRUNE_EXIT=$?
+set -e
+
+############################################################
+# 4. Destroy ZFS Snapshot
+############################################################
+echo "Destroying snapshot ${ZFS_DATASET}@${SNAP_NAME}"
+zfs destroy -r "${ZFS_DATASET}@${SNAP_NAME}" || echo "WARNING: Snapshot cleanup failed!"
+
+############################################################
+# 5. Send Email Alert
+############################################################
+LOG_SNIPPET=$(tail -n 40 "${LOG_FILE}" 2>/dev/null || echo "No log content")
+
+if [ ${BORG_EXIT} -eq 0 ] && [ ${PRUNE_EXIT} -eq 0 ]; then
+  send_mail \
+    "[OK] Borg backup on $(hostname)" \
+    "Borg backup completed successfully.
+
+Host: $(hostname)
+Time: $(date)
+
+Log tail:
+${LOG_SNIPPET}"
+
+  echo "Email notification sent: SUCCESS"
+  echo "===== Borg Backup Finished Successfully: $(date) ====="
+  exit 0
+else
+  send_mail \
+    "[FAIL] Borg backup on $(hostname)" \
+    "Borg backup FAILED.
+
+Host: $(hostname)
+Time: $(date)
+
+borg exit code: ${BORG_EXIT}
+prune exit code: ${PRUNE_EXIT}
+
+Log tail:
+${LOG_SNIPPET}"
+
+  echo "Email notification sent: FAILURE"
+  echo "===== Borg Backup Finished With Errors: $(date) ====="
+  exit 1
+fi

@@ -1,0 +1,10 @@
+/var/log/borg/*.log {
+  weekly
+  rotate 12
+  compress
+  delaycompress
+  missingok
+  notifempty
+  copytruncate
+  create 0640 root root
+}

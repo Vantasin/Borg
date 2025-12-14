@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Borg check weekly on Sunday at 04:30
+
+[Timer]
+OnCalendar=Sun 04:30:00
+Persistent=true
+Unit=borg-check.service
+
+[Install]
+WantedBy=timers.target
