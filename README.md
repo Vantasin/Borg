@@ -1,6 +1,6 @@
 # Borg Automation
 
-BorgBackup automation for a single live host and a single backup host on Debian/systemd with encrypted ZFS datasets. Nightly backups plus weekly and monthly integrity checks run via systemd timers. If required ZFS datasets or mountpoints are unavailable (locked at boot), scripts log the condition and exit 0 so timers retry after storage is online.
+BorgBackup automation for a single live host and a single backup host on Debian/systemd with encrypted ZFS datasets. Nightly backups plus weekly and monthly integrity checks run via systemd timers. If required ZFS datasets are unavailable, scripts log and exit 0 so timers retry after storage is online.
 
 ## Quickstart (start to finish)
 1) Install Borg (Debian):
@@ -24,25 +24,24 @@ sudo make install
 sudo nano /usr/local/sbin/borg/borg.env
 # Set BORG_PASSPHRASE, BORG_REPO, SOURCE_PATH, ZFS_DATASET, REPO_DATASET (optional), LOG_DIR, MAIL_TO/FROM, MAIL_ON_SUCCESS/MAIL_ON_FAILURE
 ```
-5) Prepare storage and init encrypted repo (one-time per path):
+5) Create storage (repo path must be inside the intended dataset/mount):
+- ZFS example:
 ```bash
-# If using ZFS and dataset not present:
 sudo zfs create tank/Secure/Borg
-sudo zfs load-key tank/Secure/Borg
-sudo zfs mount tank/Secure/Borg
-
-# If using ext4 on /dev/sdX1:
+```
+- ext4 example (dedicated block device `/dev/sdX1`):
+```bash
 sudo mkfs.ext4 /dev/sdX1
 sudo mkdir -p /tank/Secure/Borg
 echo "/dev/sdX1 /tank/Secure/Borg ext4 defaults 0 2" | sudo tee -a /etc/fstab
-sudo mount /tank/Secure/Borg
-
-# Initialize Borg repo (adjust path as needed)
+```
+6) Initialize the encrypted Borg repo (one-time per path):
+```bash
 export BORG_PASSPHRASE='same-passphrase-set-in-borg.env'
 sudo borg init --encryption=repokey-blake2 /tank/Secure/Borg/backup-repo
 sudo borg info /tank/Secure/Borg/backup-repo
 ```
-6) Export the repo key (store off-host securely):
+7) Export the repo key (store off-host securely):
 ```bash
 sudo borg key export /tank/Secure/Borg/backup-repo /root/borg-key.txt
 sudo chmod 600 /root/borg-key.txt && sudo chown root:root /root/borg-key.txt
@@ -50,15 +49,15 @@ sudo chmod 600 /root/borg-key.txt && sudo chown root:root /root/borg-key.txt
 sudo borg key export --paper /tank/Secure/Borg/backup-repo > /root/borg-key-paper.txt
 sudo chmod 600 /root/borg-key-paper.txt && sudo chown root:root /root/borg-key-paper.txt
 ```
-7) Optional manual test run:
+8) Optional manual test run:
 ```bash
 sudo systemctl start borg-backup.service
 ```
-8) Enable timers:
+9) Enable timers:
 ```bash
 sudo make enable
 ```
-9) Optional sanity check:
+10) Optional sanity check:
 ```bash
 sudo make check
 ```
@@ -108,18 +107,6 @@ sudo systemctl start borg-backup.service
 ```
 > Pros: keeps passphrase outside flat files. Cons: unattended timers require GPG key+store unlocked at boot.
 
-## Borg Repository Initialization (Encrypted)
-- Recommended mode: `repokey-blake2` (encrypts data+metadata with repo-embedded key + passphrase).
-- One-time per repo path; run only when the dataset is unlocked/mounted.
-```bash
-sudo zfs load-key tank/Secure/Borg
-sudo zfs mount tank/Secure/Borg
-export BORG_PASSPHRASE='same-passphrase-set-in-borg.env'
-sudo borg init --encryption=repokey-blake2 /tank/Secure/Borg/backup-repo
-sudo borg info /tank/Secure/Borg/backup-repo
-```
-> Keep the repo inside the intended dataset/mount. If missing: create/mount the ZFS dataset (see Quickstart step 5) or provision ext4 on a dedicated device.
-
 ## Borg Key Export (CRITICAL)
 - Encrypted repos need key material plus the passphrase. Export after init/changes and store off-host.
 ```bash
@@ -159,7 +146,7 @@ borg extract /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30 path/
   - Review `/var/log/borg/` and `systemctl list-timers borg-*`
 
 ## Troubleshooting
-- Dataset locked/unmounted: scripts log “not mounted/unavailable” and exit 0. Unlock/mount `ZFS_DATASET` (and optional `REPO_DATASET`), then `systemctl start borg-backup.service` or wait for the timer.
+- Dataset absent: create the dataset (ZFS `zfs create ...` or mkfs+fstab for ext4) at the intended path, then rerun.
 - Missing env or wrong perms: ensure `/usr/local/sbin/borg/borg.env` exists, has `BORG_PASSPHRASE`, and is `0600 root:root`; rerun `sudo make install` if needed and use `sudo make check`.
 
 ## Makefile targets (common)
