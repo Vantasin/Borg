@@ -41,20 +41,37 @@ cd borg
 ```
 
 Install and configure:
+1) Install artifacts and reload systemd:
 ```bash
-sudo make install          # installs scripts, units, logrotate; seeds borg.env if missing
-sudo cp /usr/local/sbin/borg/borg.env.example /usr/local/sbin/borg/borg.env  # create/refresh config (use FORCE=1 on make install to overwrite automatically)
-sudo chmod 600 /usr/local/sbin/borg/borg.env && sudo chown root:root /usr/local/sbin/borg/borg.env
-sudo nano /usr/local/sbin/borg/borg.env     # set BORG_PASSPHRASE, BORG_REPO, SOURCE_PATH, ZFS_DATASET, REPO_DATASET (if used), LOG_DIR, MAIL_TO/FROM
-sudo systemctl daemon-reload                  # make install already reloads; safe to repeat
-sudo systemctl start borg-backup.service      # manual test run; see journal/logs
-sudo make enable                              # enable timers
-sudo make check                               # optional sanity check (paths/perms/logrotate)
+sudo make install
+```
+> Installs scripts, units, logrotate; seeds borg.env if missing
+
+2) Edit runtime config (0600 root:root):
+```bash
+sudo nano /usr/local/sbin/borg/borg.env
+```
+> Set BORG_PASSPHRASE, BORG_REPO, SOURCE_PATH, ZFS_DATASET, REPO_DATASET (if used), LO
+G_DIR, MAIL_TO/FROM
+
+3) Optional manual test run:
+```bash
+sudo systemctl start borg-backup.service
+```
+> See journal/logs for results
+
+4) Enable timers:
+```bash
+sudo make enable
+```
+5) Optional sanity check:
+```bash
+sudo make check
 ```
 
 ## Borg Repository Initialization (Encrypted)
-- Recommended mode: `repokey-blake2` (encrypts data+metadata with a repo-embedded key + passphrase; balanced security and portability).
-- One-time per repo path; run only when the dataset is unlocked/mounted.
+> Recommended mode: `repokey-blake2` (encrypts data+metadata with a repo-embedded key + passphrase; balanced security and portability).
+> One-time per repo path; run only when the dataset is unlocked/mounted.
 
 Steps:
 1) Ensure the repo dataset is unlocked and mounted (example):
@@ -83,7 +100,7 @@ Keep the repo inside the intended ZFS dataset/mountpoint (e.g., `/tank/Secure/Bo
 export BORG_PASSPHRASE="$(pass show backups/borg)"   # requires unlocked GPG key/pass store
 systemctl start borg-backup.service
 ```
-  - Pros: keeps passphrase outside flat files. Cons: unattended timers require the GPG key and password store to be available/unlocked at boot—more operational complexity.
+> Pros: keeps passphrase outside flat files. Cons: unattended timers require the GPG key and password store to be available/unlocked at boot—more operational complexity.
 Choose based on whether you need fully unattended timers; the repo defaults to the env-file approach.
 
 ## Borg Key Export (CRITICAL)
@@ -92,7 +109,7 @@ Choose based on whether you need fully unattended timers; the repo defaults to t
 borg key export /tank/Secure/Borg/backup-repo /root/borg-key.txt
 chmod 600 /root/borg-key.txt && chown root:root /root/borg-key.txt
 ```
- Optional paper backup if desired:
+- Optional paper backup if desired:
 ```bash
 borg key export --paper /tank/Secure/Borg/backup-repo > /root/borg-key-paper.txt
 chmod 600 /root/borg-key-paper.txt && chown root:root /root/borg-key-paper.txt
@@ -101,37 +118,37 @@ chmod 600 /root/borg-key-paper.txt && chown root:root /root/borg-key-paper.txt
 - Checklist: key exported ✅ / passphrase recorded ✅ / restore tested ✅
 
 ## Restore Instructions with Examples
-- Always restore into a new/empty directory and verify before touching live data.
+> Always restore into a new/empty directory and verify before touching live data.
 
-Set context:
+- Set context:
 ```bash
 export BORG_PASSPHRASE='your-passphrase'
 mkdir -p /restore/tmp/borg-test
 ```
 
-List archives:
+- List archives:
 ```bash
 borg list /tank/Secure/Borg/backup-repo
 ```
 
-Inspect contents of one archive:
+- Inspect contents of one archive:
 ```bash
 borg list /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30
 ```
 
-Full extract to a temp directory:
+- Full extract to a temp directory:
 ```bash
 cd /restore/tmp/borg-test
 borg extract /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30
 ```
 
-Restore a single path:
+- Restore a single path:
 ```bash
 cd /restore/tmp/borg-test
 borg extract /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30 path/inside/archive
 ```
 
-After restore: verify permissions/ownership and run integrity checks as needed. Avoid overwriting live data; copy validated files into place during a planned window.
+> After restore: verify permissions/ownership and run integrity checks as needed. Avoid overwriting live data; copy validated files into place during a planned window.
 
 ## Disaster Recovery Requirements
 - Required to decrypt/restore:
