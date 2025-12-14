@@ -17,13 +17,15 @@ cd Borg
 3) Install scripts/units/logrotate (seeds borg.env if missing):
 ```bash
 sudo make install
-# To force overwrite of borg.env: sudo make install-force
 ```
+> To force overwrite of borg.env: sudo make install-force.
+
 4) Configure runtime env (0600 root:root):
 ```bash
 sudo nano /usr/local/sbin/borg/borg.env
-# Set BORG_PASSPHRASE, BORG_REPO, SOURCE_PATH, ZFS_DATASET, REPO_DATASET (optional), LOG_DIR, MAIL_TO/FROM, MAIL_ON_SUCCESS/MAIL_ON_FAILURE
 ```
+> Set BORG_PASSPHRASE, BORG_REPO, SOURCE_PATH, ZFS_DATASET, REPO_DATASET (optional), LOG_DIR, MAIL_TO/FROM, MAIL_ON_SUCCESS/MAIL_ON_FAILURE
+
 5) Create storage:
 - ZFS example:
 ```bash
