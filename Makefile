@@ -17,9 +17,7 @@ all: install
 
 install: install-dirs install-scripts install-env install-units install-logrotate reload
 
-# Convenience target to force borg.env overwrite
-install-force: FORCE=1
-install-force: install
+install-force: FORCE=1 install
 
 install-dirs:
 	$(INSTALL) -d -o root -g root -m 0755 $(BORG_DIR)
