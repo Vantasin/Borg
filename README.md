@@ -59,7 +59,7 @@ sudo borg key export --paper /tank/Secure/Borg/backup-repo > ~/borg-key-paper.tx
 ```bash
 tmux new -s borg-test
 ```
-split pane: `Ctrl-b` then `"`
+**Split pane:** `Ctrl-b` + `"`
 ```bash
 sudo systemctl start borg-backup.service
 ```
