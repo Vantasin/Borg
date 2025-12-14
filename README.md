@@ -59,7 +59,7 @@ sudo borg key export --paper /tank/Secure/Borg/backup-repo > ~/borg-key-paper.tx
 ```bash
 tmux new -s borg-test
 ```
-**Split pane:** `Ctrl-b` + `"`
+**Split pane:** `Ctrl-b` then `"`
 ```bash
 sudo systemctl start borg-backup.service
 ```
@@ -70,7 +70,9 @@ tail -f /var/log/borg/backup_$(date +%F).log
 ```
 > Follow backup progress in pane 2
 
-> detach: Ctrl-b then d; reattach: tmux attach -t borg-test
+> **Detach:** `Ctrl-b` then `d`
+
+> **Reattach:** `tmux attach -t borg-test`
 
 9) Enable timers:
 ```bash
