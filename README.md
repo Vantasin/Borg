@@ -86,11 +86,11 @@ export BORG_PASSPHRASE='same-passphrase-set-in-borg.env'
 ```
 3) Initialize the repo (adjust path as needed):
 ```bash
-borg init --encryption=repokey-blake2 /tank/Secure/Borg/backup-repo
+sudo borg init --encryption=repokey-blake2 /tank/Secure/Borg/backup-repo
 ```
 4) Verify:
 ```bash
-borg info /tank/Secure/Borg/backup-repo
+sudo borg info /tank/Secure/Borg/backup-repo
 ```
 > Keep the repo inside the intended ZFS dataset/mountpoint (e.g., `/tank/Secure/Borg/backup-repo`). If the dataset is not mounted/unlocked, resolve that first; do not force init on the wrong path.
 
@@ -99,7 +99,7 @@ borg info /tank/Secure/Borg/backup-repo
 - Optional: `pass`/GPG integration (operator-managed). Example non-interactive export before a manual run:
 ```bash
 export BORG_PASSPHRASE="$(pass show backups/borg)"   # requires unlocked GPG key/pass store
-systemctl start borg-backup.service
+sudo systemctl start borg-backup.service
 ```
 > Pros: keeps passphrase outside flat files. Cons: unattended timers require the GPG key and password store to be available/unlocked at boot—more operational complexity.
 Choose based on whether you need fully unattended timers; the repo defaults to the env-file approach.
@@ -107,13 +107,13 @@ Choose based on whether you need fully unattended timers; the repo defaults to t
 ## Borg Key Export (CRITICAL)
 - Encrypted repos need their key material plus the passphrase. Export and back it up safely—do this after `borg init` and after key changes.
 ```bash
-borg key export /tank/Secure/Borg/backup-repo /root/borg-key.txt
-chmod 600 /root/borg-key.txt && chown root:root /root/borg-key.txt
+sudo borg key export /tank/Secure/Borg/backup-repo /root/borg-key.txt
+sudo chmod 600 /root/borg-key.txt && chown root:root /root/borg-key.txt
 ```
 - Optional paper backup if desired:
 ```bash
-borg key export --paper /tank/Secure/Borg/backup-repo > /root/borg-key-paper.txt
-chmod 600 /root/borg-key-paper.txt && chown root:root /root/borg-key-paper.txt
+sudo borg key export --paper /tank/Secure/Borg/backup-repo > /root/borg-key-paper.txt
+sudo chmod 600 /root/borg-key-paper.txt && chown root:root /root/borg-key-paper.txt
 ```
 - Store keys off the backup host (e.g., encrypted USB, password manager secure file, printed and stored securely). Do NOT store with the repo, on the same dataset, in Git, or in unencrypted cloud storage.
 - Checklist: key exported ✅ / passphrase recorded ✅ / restore tested ✅
@@ -129,24 +129,24 @@ mkdir -p /restore/tmp/borg-test
 
 - List archives:
 ```bash
-borg list /tank/Secure/Borg/backup-repo
+sudo borg list /tank/Secure/Borg/backup-repo
 ```
 
 - Inspect contents of one archive:
 ```bash
-borg list /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30
+sudo borg list /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30
 ```
 
 - Full extract to a temp directory:
 ```bash
 cd /restore/tmp/borg-test
-borg extract /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30
+sudo borg extract /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30
 ```
 
 - Restore a single path:
 ```bash
 cd /restore/tmp/borg-test
-borg extract /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30 path/inside/archive
+sudo borg extract /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30 path/inside/archive
 ```
 
 > After restore: verify permissions/ownership and run integrity checks as needed. Avoid overwriting live data; copy validated files into place during a planned window.
