@@ -24,8 +24,6 @@ sudo make install
 ```bash
 sudo nano /usr/local/sbin/borg/borg.env
 ```
-> Set BORG_PASSPHRASE, BORG_REPO, SOURCE_PATH, ZFS_DATASET, REPO_DATASET (optional), LOG_DIR, MAIL_TO/FROM, MAIL_ON_SUCCESS/MAIL_ON_FAILURE
-
 5) Create storage:
 - ZFS example:
 ```bash
