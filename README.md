@@ -118,6 +118,7 @@ export BORG_PASSPHRASE="$(pass show backups/borg)"   # requires unlocked GPG key
 sudo systemctl start borg-backup.service
 ```
 > Pros: keeps passphrase outside flat files.
+
 > Cons: unattended timers require GPG key+store unlocked at boot.
 
 ## Disaster Recovery Requirements
