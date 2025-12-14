@@ -12,7 +12,7 @@ borg --version || { sudo apt update && sudo apt install borgbackup -y; }
 sudo mkdir -p /opt/git && sudo chown "$(whoami)" /opt/git
 cd /opt/git
 git clone https://github.com/Vantasin/Borg.git
-cd borg
+cd Borg
 ```
 3) Install scripts/units/logrotate (seeds borg.env if missing):
 ```bash
