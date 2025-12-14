@@ -93,6 +93,20 @@ sudo borg init --encryption=repokey-blake2 /tank/Secure/Borg/backup-repo
 sudo borg info /tank/Secure/Borg/backup-repo
 ```
 > Keep the repo inside the intended ZFS dataset/mountpoint (e.g., `/tank/Secure/Borg/backup-repo`). If the dataset is not mounted/unlocked, resolve that first; do not force init on the wrong path.
+> If the dataset/mountpoint doesn’t exist:
+- ZFS example:
+```bash
+sudo zfs create tank/Secure/Borg
+sudo zfs load-key tank/Secure/Borg
+sudo zfs mount tank/Secure/Borg
+```
+- ext4 example (dedicated block device `/dev/sdX1`):
+```bash
+sudo mkfs.ext4 /dev/sdX1
+sudo mkdir -p /tank/Secure/Borg
+echo "/dev/sdX1 /tank/Secure/Borg ext4 defaults 0 2" | sudo tee -a /etc/fstab
+sudo mount /tank/Secure/Borg
+```
 
 ## Borg Passphrase Handling
 - Default (recommended): store `BORG_PASSPHRASE` in `/usr/local/sbin/borg/borg.env` (0600 root:root). Services load it via `EnvironmentFile=`; scripts require it to be set.
