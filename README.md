@@ -55,16 +55,16 @@ sudo borg key export --paper /tank/Secure/Borg/backup-repo > ~/borg-key-paper.tx
 
 8) Optional manual test run:
 
-1) Use tmux to avoid interruption if session drops:
+- Use tmux to avoid interruption if session drops:
 ```bash
 tmux new -s borg-test
 ```
-2) Run manual backup in pane 1:
+- Run manual backup in pane 1:
 ```bash
 sudo systemctl start borg-backup.service
 ```
-3) **Split pane:** `Ctrl-b` then `"`
-Follow backup progress in pane 2
+- **Split pane:** `Ctrl-b` then `"`
+- Follow backup progress in pane 2
 ```bash
 tail -f /var/log/borg/backup_$(date +%F).log
 ```
