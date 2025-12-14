@@ -93,7 +93,10 @@ cd /restore/tmp/borg-test
 sudo borg extract /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30
 ```
 > Use the same passphrase that you set in the borg.env.
-> After restore: verify permissions/ownership and integrity; avoid overwriting live data.
+
+> **After restore:** verify permissions/ownership and integrity.
+
+> Avoid overwriting live data.
 
 ## Repository layout
 - `scripts/`: Bash entrypoints (`borg_nightly.sh`, `borg_check.sh`, `borg_check_verify.sh`).
