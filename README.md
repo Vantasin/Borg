@@ -25,14 +25,14 @@ BorgBackup automation for a single live host and a single backup host on Debian/
 - `MAIL_TO` / `MAIL_FROM` — msmtp notification addresses.
 
 ## Initial setup
-Prerequisites: Debian-like host with systemd, `borgbackup`, `zfsutils-linux`, and a working `msmtp` config; sudo/root access.
+> Prerequisites: Debian-like host with systemd, `borgbackup`, `zfsutils-linux`, and a working `msmtp` config; sudo/root access.
 
-Verify Borg is installed (install if missing):
+### Verify Borg is installed (install if missing):
 ```bash
 borg --version || { sudo apt update && sudo apt install borgbackup -y; }
 ```
 
-Recommended clone location:
+### Recommended clone location:
 ```bash
 sudo mkdir -p /opt/git && sudo chown "$(whoami)" /opt/git
 cd /opt/git
@@ -40,7 +40,7 @@ git clone https://github.com/Vantasin/Borg.git
 cd borg
 ```
 
-Install and configure:
+### Install and configure:
 1) Install artifacts and reload systemd:
 ```bash
 sudo make install
