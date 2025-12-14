@@ -55,6 +55,8 @@ sudo borg key export --paper /tank/Secure/Borg/backup-repo > ~/borg-key-paper.tx
 
 8) Optional manual test run:
 
+> **Note:** This can take a long time depending on the size of the initial backup.
+
 - Use tmux to avoid interruption if session drops:
 ```bash
 tmux new -s borg-test
