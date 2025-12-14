@@ -23,6 +23,7 @@ BorgBackup automation for a single live host and a single backup host on Debian/
 - `REPO_DATASET` — dataset hosting `BORG_REPO` (optional), e.g., `tank/Secure/Borg`.
 - `LOG_DIR` — default `/var/log/borg`.
 - `MAIL_TO` / `MAIL_FROM` — msmtp notification addresses.
+- `MAIL_ON_SUCCESS` / `MAIL_ON_FAILURE` — set to `true/false` (or `1/0`) to send or suppress.
 
 ## Initial setup
 > Prerequisites: Debian-like host with systemd, `borgbackup`, `zfsutils-linux`, and a working `msmtp` config; sudo/root access.

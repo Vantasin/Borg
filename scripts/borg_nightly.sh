@@ -33,6 +33,8 @@ LOG_FILE="${LOG_FILE:-${LOG_DIR}/backup_$(date +%F).log}"
 
 MAIL_TO="${MAIL_TO:-alerts@example.com}"
 MAIL_FROM="${MAIL_FROM:-borg@localhost}"
+MAIL_ON_SUCCESS="${MAIL_ON_SUCCESS:-true}"
+MAIL_ON_FAILURE="${MAIL_ON_FAILURE:-true}"
 
 : "${BORG_PASSPHRASE:?BORG_PASSPHRASE is required}"
 
@@ -84,6 +86,14 @@ fi
 ############################################################
 # Email Helper (msmtp)
 ############################################################
+is_enabled() {
+  case "$1" in
+    1|true|TRUE|yes|YES|on|ON) return 0 ;;
+    0|false|FALSE|no|NO|off|OFF|"") return 1 ;;
+    *) return 1 ;;
+  esac
+}
+
 send_mail() {
   local subject="$1"
   local body="$2"
@@ -145,9 +155,10 @@ zfs destroy -r "${ZFS_DATASET}@${SNAP_NAME}" || echo "WARNING: Snapshot cleanup 
 LOG_SNIPPET=$(tail -n 40 "${LOG_FILE}" 2>/dev/null || echo "No log content")
 
 if [ ${BORG_EXIT} -eq 0 ] && [ ${PRUNE_EXIT} -eq 0 ]; then
-  send_mail \
-    "[OK] Borg backup on $(hostname)" \
-    "Borg backup completed successfully.
+  if is_enabled "${MAIL_ON_SUCCESS}"; then
+    send_mail \
+      "[OK] Borg backup on $(hostname)" \
+      "Borg backup completed successfully.
 
 Host: $(hostname)
 Time: $(date)
@@ -155,13 +166,17 @@ Time: $(date)
 Log tail:
 ${LOG_SNIPPET}"
 
-  echo "Email notification sent: SUCCESS"
+    echo "Email notification sent: SUCCESS"
+  else
+    echo "Success email suppressed (MAIL_ON_SUCCESS=false)"
+  fi
   echo "===== Borg Backup Finished Successfully: $(date) ====="
   exit 0
 else
-  send_mail \
-    "[FAIL] Borg backup on $(hostname)" \
-    "Borg backup FAILED.
+  if is_enabled "${MAIL_ON_FAILURE}"; then
+    send_mail \
+      "[FAIL] Borg backup on $(hostname)" \
+      "Borg backup FAILED.
 
 Host: $(hostname)
 Time: $(date)
@@ -172,7 +187,10 @@ prune exit code: ${PRUNE_EXIT}
 Log tail:
 ${LOG_SNIPPET}"
 
-  echo "Email notification sent: FAILURE"
+    echo "Email notification sent: FAILURE"
+  else
+    echo "Failure email suppressed (MAIL_ON_FAILURE=false)"
+  fi
   echo "===== Borg Backup Finished With Errors: $(date) ====="
   exit 1
 fi
