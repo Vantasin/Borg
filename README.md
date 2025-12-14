@@ -189,4 +189,4 @@ Makefile targets (non-exhaustive):
 Built on BorgBackup, ZFS, systemd, msmtp, and logrotate.
 
 ## License
-See `LICENSE`.
+See [LICENSE](LICENSE).
