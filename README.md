@@ -18,7 +18,7 @@ cd Borg
 ```bash
 sudo make install
 ```
-> To force overwrite of borg.env: sudo make install-force.
+> To force overwrite of borg.env: `sudo make install-force`.
 
 4) Configure runtime env (0600 root:root):
 ```bash
