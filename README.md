@@ -48,8 +48,9 @@ Optional paper copy:
 sudo borg key export --paper /tank/Secure/Borg/backup-repo > ~/borg-key-paper.txt
 ```
 > Encrypted repos need key material plus the passphrase. Export after init/changes and store off-host.
-> Keep keys off the backup host (encrypted USB, password manager secure file, printed and stored securely). Do NOT store with the r
-epo, on the same dataset, in Git, or in unencrypted cloud storage.
+
+> Keep keys off the backup host (encrypted USB, password manager secure file, printed and stored securely). Do NOT store with the repo, on the same dataset, in Git, or in unencrypted cloud storage.
+
 > Checklist: key exported ✅ / passphrase recorded ✅ / restore tested ✅
 
 8) Optional manual test run:
@@ -66,10 +67,17 @@ sudo make check
 ```
 
 ## Validate and test
-> Status: `systemctl status borg-backup.service borg-check.service borg-check-verify.service` and `systemctl list-timers borg-*`
-> Logs: `/var/log/borg/backup_YYYY-MM-DD.log`, `check_YYYY-MM-DD.log`, `check_verify_YYYY-MM-DD.log`; journal via `journalctl -u borg-backup.service -n 100`
+### Status:
+- `systemctl status borg-backup.service borg-check.service borg-check-verify.service`
+- `systemctl list-timers borg-*`
 
-Restore test (recommended periodically):
+### Logs:
+- `/var/log/borg/backup_YYYY-MM-DD.log`
+- `check_YYYY-MM-DD.log`
+- `check_verify_YYYY-MM-DD.log`
+- journal via `journalctl -u borg-backup.service -n 100`
+
+### Restore test (recommended periodically):
 
 1) Make the restore directory.
 ```bash
