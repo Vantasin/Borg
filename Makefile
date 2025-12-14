@@ -11,11 +11,15 @@ SCRIPTS := borg_nightly.sh borg_check.sh borg_check_verify.sh
 UNITS := borg-backup.service borg-backup.timer borg-check.service borg-check.timer borg-check-verify.service borg-check-verify.timer
 TIMERS := borg-backup.timer borg-check.timer borg-check-verify.timer
 
-.PHONY: all install install-dirs install-scripts install-env install-units install-logrotate reload enable disable status uninstall check help
+.PHONY: all install install-force install-dirs install-scripts install-env install-units install-logrotate reload enable disable status uninstall check help
 
 all: install
 
 install: install-dirs install-scripts install-env install-units install-logrotate reload
+
+# Convenience target to force borg.env overwrite
+install-force: FORCE=1
+install-force: install
 
 install-dirs:
 	$(INSTALL) -d -o root -g root -m 0755 $(BORG_DIR)
