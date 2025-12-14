@@ -90,7 +90,7 @@ borg init --encryption=repokey-blake2 /tank/Secure/Borg/backup-repo
 ```bash
 borg info /tank/Secure/Borg/backup-repo
 ```
-Keep the repo inside the intended ZFS dataset/mountpoint (e.g., `/tank/Secure/Borg/backup-repo`). If the dataset is not mounted/unlocked, resolve that first; do not force init on the wrong path.
+> Keep the repo inside the intended ZFS dataset/mountpoint (e.g., `/tank/Secure/Borg/backup-repo`). If the dataset is not mounted/unlocked, resolve that first; do not force init on the wrong path.
 
 ## Borg Passphrase Handling
 - Default (recommended): store `BORG_PASSPHRASE` in `/usr/local/sbin/borg/borg.env` (0600 root:root). Services load it via `EnvironmentFile=`; scripts require it to be set.
