@@ -87,7 +87,7 @@ sudo make check
 ## Validate and test
 ### Status:
 - `systemctl status borg-backup.service borg-check.service borg-check-verify.service`
-- `systemctl list-timers borg-*`
+- `systemctl list-timers`
 
 ### Logs:
 - `/var/log/borg/backup_YYYY-MM-DD.log`
