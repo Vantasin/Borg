@@ -90,10 +90,12 @@ sudo make enable
 ```bash
 sudo make check
 ```
+> `make check` validates installed files/perms and exits non-zero on issues.
 11) Optional status review (human confirmation):
 ```bash
 sudo make status
 ```
+> `make status` shows systemd service/timer state for human review.
 
 ## Validate and test
 ### Status:
