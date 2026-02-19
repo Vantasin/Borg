@@ -1,6 +1,6 @@
 # Borg Automation
 
-BorgBackup automation for a single live host and a single backup host on Debian/systemd with encrypted ZFS datasets. Nightly backups plus weekly and monthly integrity checks run via systemd timers. If required ZFS datasets are unavailable, scripts log and exit 0 so timers retry after storage is online.
+Opinionated BorgBackup automation for a single live host and a single backup host on Debian/systemd. This setup assumes encrypted ZFS datasets and relies on ZFS snapshots for consistent backups. Nightly backups plus weekly and monthly integrity checks run via systemd timers. If required ZFS datasets are unavailable, scripts log and exit 0 so timers retry after storage is online.
 
 ## Quickstart (start to finish)
 1) Install Borg (Debian):
@@ -14,22 +14,28 @@ cd /opt/git
 git clone https://github.com/Vantasin/Borg.git
 cd Borg
 ```
-3) Install scripts/units/logrotate (seeds borg.env if missing):
+3) Install scripts/units (seeds borg.env if missing):
 ```bash
 sudo make install
 ```
-> To force overwrite of borg.env: `sudo make install-force`.
+> If upgrading from older versions, `make install` removes the legacy `/etc/logrotate.d/borg` file.
+> `make install` also removes stale installed scripts/units based on a manifest in `/usr/local/sbin/borg/.install-manifest` (never touches `borg.env`).
+> Legacy logrotate cleanup is handled separately and is not part of the manifest.
+> To force overwrite of borg.env (with a timestamped backup in the same directory): `sudo make install-force`.
 
 4) Configure runtime env (0600 root:root):
 ```bash
 sudo nano /usr/local/sbin/borg/borg.env
 ```
 5) Create storage:
-- ZFS example:
+- Source data must live on encrypted ZFS so snapshots are available (required).
+- Borg repo can live on ZFS or ext4; ZFS is recommended for consistency.
+
+ZFS example:
 ```bash
 sudo zfs create tank/Secure/Borg
 ```
-- ext4 example:
+ext4 example (repo only, not source data):
 ```bash
 sudo mkdir -p /tank/Secure/Borg
 ```
@@ -68,7 +74,7 @@ sudo systemctl start borg-backup.service
 - **Split pane:** `Ctrl-b` then `"`
 - Follow backup progress in pane 2
 ```bash
-tail -f /var/log/borg/backup_$(date +%F).log
+tail -f /var/log/borg/backup_latest.log
 ```
 
 > **Detach:** `Ctrl-b` then `d`
@@ -79,6 +85,7 @@ tail -f /var/log/borg/backup_$(date +%F).log
 ```bash
 sudo make enable
 ```
+> This also enables `borg-log-cleanup.timer` for log retention.
 10) Optional sanity check:
 ```bash
 sudo make check
@@ -86,14 +93,16 @@ sudo make check
 
 ## Validate and test
 ### Status:
-- `systemctl status borg-backup.service borg-check.service borg-check-verify.service`
+- `systemctl status borg-backup.service borg-check.service borg-check-verify.service borg-log-cleanup.service`
 - `systemctl list-timers`
 
 ### Logs:
-- `/var/log/borg/backup_YYYY-MM-DD.log`
-- `check_YYYY-MM-DD.log`
-- `check_verify_YYYY-MM-DD.log`
+- Per-run logs: `/var/log/borg/runs/backup_YYYYMMDDTHHMMSS.log`
+- Per-run logs: `/var/log/borg/runs/check_YYYYMMDDTHHMMSS.log`
+- Per-run logs: `/var/log/borg/runs/check_verify_YYYYMMDDTHHMMSS.log`
+- Latest symlinks: `/var/log/borg/backup_latest.log`, `/var/log/borg/check_latest.log`, `/var/log/borg/check_verify_latest.log`
 - journal via `journalctl -u borg-backup.service -n 100`
+> Logs older than `LOG_RETENTION_DAYS` are deleted by `borg-log-cleanup.timer`.
 
 ### Restore test (recommended periodically):
 
@@ -118,16 +127,18 @@ sudo borg extract /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30
 
 ## Repository layout
 - `scripts/`: Bash entrypoints (`borg_nightly.sh`, `borg_check.sh`, `borg_check_verify.sh`).
-- `systemd/`: `borg-*.service` and `borg-*.timer` units installed flat into `/etc/systemd/system/`.
-- `packaging/logrotate/borg`: logrotate policy for `/var/log/borg/*.log`.
+- `systemd/`: `borg-*.service` and `borg-*.timer` units installed flat into `/etc/systemd/system/` (includes log cleanup timer).
+- `scripts/borg_lib.sh`: shared helpers (logging, mail, env load).
+- `scripts/borg_log_cleanup.sh`: prunes old per-run logs (used by `borg-log-cleanup.timer`).
 - `docs/`: original operational notes (`Borg Backup Archive -- Backup Server.md`).
 - `borg.env.example`: sample environment; real config lives beside installed scripts.
 - `Makefile`: install, enable/disable, status, check, uninstall targets.
 
 ## Security model and configuration
+- This automation assumes encrypted ZFS datasets and uses ZFS snapshots for consistent backups.
 - Secrets/config are not committed. Use `/usr/local/sbin/borg/borg.env` (0600 root:root); start from `borg.env.example`.
 - Services load `EnvironmentFile=/usr/local/sbin/borg/borg.env`; scripts require `BORG_PASSPHRASE` and honor the same path (legacy fallback to `/tank/Secure/Secrets/.borg_env` if unset).
-- Logrotate installs to `/etc/logrotate.d/borg`; runtime logs stay in `/var/log/borg/`.
+- Runtime logs stay in `/var/log/borg/` and are pruned by `borg-log-cleanup.timer`.
 
 Key variables in `/usr/local/sbin/borg/borg.env`:
 - `BORG_PASSPHRASE` (required) — repo encryption passphrase
@@ -136,8 +147,11 @@ Key variables in `/usr/local/sbin/borg/borg.env`:
 - `ZFS_DATASET` — default `tank/Secure/backup`
 - `REPO_DATASET` — optional dataset hosting the repo, e.g., `tank/Secure/Borg`
 - `LOG_DIR` — default `/var/log/borg`
+- `LOG_RUN_DIR` — default `/var/log/borg/runs`
+- `LOG_RETENTION_DAYS` — delete per-run logs older than this (default `90`)
+- `ARCHIVE_PREFIX` — archive name prefix (default `backup`)
 - `MAIL_TO` / `MAIL_FROM` — msmtp notification addresses
-- `MAIL_ON_SUCCESS` / `MAIL_ON_FAILURE` — `true/false` (or `1/0`) to send or suppress
+- `MAIL_ON_SUCCESS` / `MAIL_ON_FAILURE` / `MAIL_ON_SKIP` — `true/false` (or `1/0`) to send or suppress
 
 ## Borg Passphrase Handling
 - Default (recommended): env file at `/usr/local/sbin/borg/borg.env` (0600 root:root), loaded by systemd and scripts.
@@ -169,14 +183,14 @@ sudo systemctl start borg-backup.service
 - Missing env or wrong perms: ensure `/usr/local/sbin/borg/borg.env` exists, has `BORG_PASSPHRASE`, and is `0600 root:root`; rerun `sudo make install` if needed and use `sudo make check`.
 
 ## Makefile targets (common)
-- `make install` / `make install-force` (overwrite borg.env): install scripts/units/logrotate; reload systemd.
+- `make install` / `make install-force` (overwrite borg.env with a timestamped backup): install scripts/units; remove stale installed files via manifest; reload systemd.
 - `make enable` / `make disable`: enable/disable timers.
 - `make status`: show service/timer status and timers list.
-- `make check`: sanity-check installed paths/perms/logrotate.
-- `make uninstall`: remove installed units/scripts/logrotate (keeps `borg.env`).
+- `make check`: sanity-check installed paths/perms.
+- `make uninstall`: remove installed units/scripts (keeps `borg.env`).
 
 ## Credits
-Built on BorgBackup, ZFS, systemd, msmtp, and logrotate.
+Built on BorgBackup, ZFS, systemd, and msmtp.
 
 ## License
 See [LICENSE](LICENSE).

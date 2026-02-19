@@ -1,22 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-############################################################
-# Optional env file load (services use EnvironmentFile)
-############################################################
-BORG_ENV_PATH=${BORG_ENV_PATH:-/usr/local/sbin/borg/borg.env}
-if [ -z "${BORG_ENV_LOADED:-}" ] && [ -f "${BORG_ENV_PATH}" ]; then
-  # shellcheck disable=SC1091
-  source "${BORG_ENV_PATH}"
-  BORG_ENV_LOADED=1
-fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/borg_lib.sh"
 
-LEGACY_BORG_ENV=${LEGACY_BORG_ENV:-/tank/Secure/Secrets/.borg_env}
-if [ -z "${BORG_ENV_LOADED:-}" ] && [ -z "${BORG_PASSPHRASE:-}" ] && [ -f "${LEGACY_BORG_ENV}" ]; then
-  # shellcheck disable=SC1091
-  source "${LEGACY_BORG_ENV}"
-  BORG_ENV_LOADED=1
-fi
+JOB_NAME="check"
+load_env
 
 ############################################################
 # Config (overridable via env)
@@ -25,129 +15,210 @@ BORG_REPO="${BORG_REPO:-/tank/Secure/Borg/backup-repo}"
 REPO_DATASET="${REPO_DATASET:-}"
 
 LOG_DIR="${LOG_DIR:-/var/log/borg}"
-LOG_FILE="${LOG_FILE:-${LOG_DIR}/check_$(date +%F).log}"
+LOG_RUN_DIR="${LOG_RUN_DIR:-${LOG_DIR}/runs}"
 
 MAIL_TO="${MAIL_TO:-alerts@example.com}"
 MAIL_FROM="${MAIL_FROM:-borg@localhost}"
 MAIL_ON_SUCCESS="${MAIL_ON_SUCCESS:-true}"
 MAIL_ON_FAILURE="${MAIL_ON_FAILURE:-true}"
+MAIL_ON_SKIP="${MAIL_ON_SKIP:-true}"
 
-: "${BORG_PASSPHRASE:?BORG_PASSPHRASE is required}"
+require_passphrase
+setup_logging "${JOB_NAME}"
 
-############################################################
-# Prepare Logging
-############################################################
-mkdir -p "${LOG_DIR}"
-exec >> "${LOG_FILE}" 2>&1
+RUN_START_EPOCH=$(date +%s)
+RUN_START_HUMAN="$(date -Is)"
+HOSTNAME="$(hostname)"
+
+CHECK_EXIT=0
+SKIPPED=0
+SKIP_REASON=""
+
+finalize() {
+  local exit_code="$1"
+  local run_end_epoch
+  local run_end_human
+  local run_duration
+  local status
+  local final_exit
+  local warn_count
+  local warn_lines
+  local subject
+  local body
+  local attachment
+
+  run_end_epoch=$(date +%s)
+  run_end_human="$(date -Is)"
+  run_duration=$(format_duration $((run_end_epoch - RUN_START_EPOCH)))
+
+  if [ "${SKIPPED}" -eq 1 ]; then
+    local skip_subject
+    local skip_body
+    local skip_reason
+
+    skip_reason="${SKIP_REASON:-Unspecified skip reason}"
+    skip_subject="[SKIP] Borg check on ${HOSTNAME}"
+    skip_body=$(cat <<'EOF_BODY'
+Borg Check Skipped
+Host: __HOST__
+Repository: __REPO__
+
+Start: __START__
+End: __END__
+Duration: __DURATION__
+
+Reason: __REASON__
+
+Log: __LOG__
+EOF_BODY
+)
+    skip_body=${skip_body//__HOST__/${HOSTNAME}}
+    skip_body=${skip_body//__REPO__/${BORG_REPO}}
+    skip_body=${skip_body//__START__/${RUN_START_HUMAN}}
+    skip_body=${skip_body//__END__/${run_end_human}}
+    skip_body=${skip_body//__DURATION__/${run_duration}}
+    skip_body=${skip_body//__REASON__/${skip_reason}}
+    skip_body=${skip_body//__LOG__/${RUN_LOG}}
+
+    if is_enabled "${MAIL_ON_SKIP}"; then
+      set +e
+      send_mail "${skip_subject}" "${skip_body}"
+      MAIL_EXIT=$?
+      set -e
+      if [ "${MAIL_EXIT}" -eq 0 ]; then
+        log "Skip email notification sent."
+      else
+        log "WARNING: Skip email notification failed (exit ${MAIL_EXIT})."
+      fi
+    else
+      log "Skip email suppressed (MAIL_ON_SKIP=false)"
+    fi
+
+    log "===== Borg Check Skipped: $(date -Is) ====="
+    exit 0
+  fi
+
+  status="OK"
+  if [ "${exit_code}" -ne 0 ] || [ "${CHECK_EXIT}" -ge 2 ]; then
+    status="FAIL"
+  elif [ "${CHECK_EXIT}" -eq 1 ]; then
+    status="WARN"
+  fi
+
+  final_exit=0
+  if [ "${status}" != "OK" ]; then
+    final_exit=1
+  fi
+
+  warn_count=$(count_matching '(WARNING|ERROR|Error:|CRITICAL|FAILED)' "${RUN_LOG}")
+  warn_lines=$(collect_warnings "${RUN_LOG}" 30)
+  if [ -z "${warn_lines}" ]; then
+    warn_lines="None"
+  fi
+
+  subject="[${status}] Borg check on ${HOSTNAME}"
+  body=$(cat <<'EOF_BODY'
+Borg Check Summary
+Status: __STATUS__
+Host: __HOST__
+Repository: __REPO__
+
+Start: __START__
+End: __END__
+Duration: __DURATION__
+
+Exit code: __CHECK_EXIT__
+
+Warnings/Errors (__WARN_COUNT__):
+__WARN_LINES__
+
+Log: __LOG__
+EOF_BODY
+)
+  body=${body//__STATUS__/${status}}
+  body=${body//__HOST__/${HOSTNAME}}
+  body=${body//__REPO__/${BORG_REPO}}
+  body=${body//__START__/${RUN_START_HUMAN}}
+  body=${body//__END__/${run_end_human}}
+  body=${body//__DURATION__/${run_duration}}
+  body=${body//__CHECK_EXIT__/${CHECK_EXIT}}
+  body=${body//__WARN_COUNT__/${warn_count}}
+  body=${body//__WARN_LINES__/${warn_lines}}
+  body=${body//__LOG__/${RUN_LOG}}
+
+  attachment=""
+  if [ "${status}" != "OK" ]; then
+    attachment="${RUN_LOG}"
+  fi
+
+  if [ "${status}" = "OK" ]; then
+    if is_enabled "${MAIL_ON_SUCCESS}"; then
+      set +e
+      send_mail "${subject}" "${body}" "${attachment}"
+      MAIL_EXIT=$?
+      set -e
+      if [ "${MAIL_EXIT}" -eq 0 ]; then
+        log "Email notification sent: SUCCESS"
+      else
+        log "WARNING: Email notification failed (exit ${MAIL_EXIT})."
+      fi
+    else
+      log "Success email suppressed (MAIL_ON_SUCCESS=false)"
+    fi
+  else
+    if is_enabled "${MAIL_ON_FAILURE}"; then
+      set +e
+      send_mail "${subject}" "${body}" "${attachment}"
+      MAIL_EXIT=$?
+      set -e
+      if [ "${MAIL_EXIT}" -eq 0 ]; then
+        log "Email notification sent: FAILURE"
+      else
+        log "WARNING: Email notification failed (exit ${MAIL_EXIT})."
+      fi
+    else
+      log "Failure email suppressed (MAIL_ON_FAILURE=false)"
+    fi
+  fi
+
+  if [ "${status}" = "OK" ]; then
+    log "===== Borg Check Finished Successfully: $(date -Is) ====="
+  else
+    log "===== Borg Check Finished With Errors: $(date -Is) ====="
+  fi
+
+  exit "${final_exit}"
+}
+
+trap 'finalize $?' EXIT
+
+log "===== Borg Check Started: ${RUN_START_HUMAN} ====="
 
 ############################################################
 # Ensure repository location is reachable
 ############################################################
-require_mounted() {
-  local path="$1"
-  local label="$2"
-
-  if command -v findmnt >/dev/null 2>&1; then
-    if ! findmnt -T "${path}" >/dev/null 2>&1; then
-      echo "${label} (${path}) not mounted; skipping check run."
-      exit 0
-    fi
-  fi
-}
-
 if [ -n "${REPO_DATASET}" ]; then
   if ! command -v zfs >/dev/null 2>&1; then
-    echo "zfs command not found; skipping check run."
-    exit 0
+    skip_run "zfs command not found; skipping check run."
   fi
 
   if ! zfs list -H -o name "${REPO_DATASET}" >/dev/null 2>&1; then
-    echo "ZFS dataset ${REPO_DATASET} unavailable; skipping check run."
-    exit 0
+    skip_run "ZFS dataset ${REPO_DATASET} unavailable; skipping check run."
   fi
 fi
 
-require_mounted "${BORG_REPO}" "Borg repo parent"
-
-if [ ! -d "${BORG_REPO}" ]; then
-  echo "Borg repo ${BORG_REPO} unavailable; skipping check run."
-  exit 0
+if ! require_mounted "${BORG_REPO}" "Borg repo parent"; then
+  skip_run "Borg repo parent (${BORG_REPO}) not mounted; skipping check run."
 fi
 
-############################################################
-# Email Helper (msmtp)
-############################################################
-is_enabled() {
-  case "$1" in
-    1|true|TRUE|yes|YES|on|ON) return 0 ;;
-    0|false|FALSE|no|NO|off|OFF|"") return 1 ;;
-    *) return 1 ;;
-  esac
-}
-
-send_mail() {
-  local subject="$1"
-  local body="$2"
-
-  printf "From: %s\nTo: %s\nSubject: %s\n\n%s\n" \
-    "${MAIL_FROM}" "${MAIL_TO}" "${subject}" "${body}" \
-    | /usr/bin/msmtp -a default "${MAIL_TO}"
-}
+if [ ! -d "${BORG_REPO}" ]; then
+  skip_run "Borg repo ${BORG_REPO} unavailable; skipping check run."
+fi
 
 ############################################################
 # Begin Borg Check
 ############################################################
-echo "===== Borg Check Started: $(date) ====="
-
-# If you later want a heavy data-verify run, change this to:
-#   borg check --verify-data "${BORG_REPO}"
-# and maybe schedule it monthly instead.
 set +e
 borg check "${BORG_REPO}"
 CHECK_EXIT=$?
 set -e
-
-############################################################
-# Send Email Alert
-############################################################
-LOG_SNIPPET=$(tail -n 40 "${LOG_FILE}" 2>/dev/null || echo "No log content")
-
-if [ ${CHECK_EXIT} -eq 0 ]; then
-  if is_enabled "${MAIL_ON_SUCCESS}"; then
-    send_mail \
-      "[OK] Borg check on $(hostname)" \
-      "Borg repository check completed successfully.
-
-Host: $(hostname)
-Time: $(date)
-
-Log tail:
-${LOG_SNIPPET}"
-
-    echo "Email notification sent: SUCCESS"
-  else
-    echo "Success email suppressed (MAIL_ON_SUCCESS=false)"
-  fi
-  echo "===== Borg Check Finished Successfully: $(date) ====="
-  exit 0
-else
-  if is_enabled "${MAIL_ON_FAILURE}"; then
-    send_mail \
-      "[FAIL] Borg check on $(hostname)" \
-      "Borg repository check FAILED.
-
-Host: $(hostname)
-Time: $(date)
-
-borg check exit code: ${CHECK_EXIT}
-
-Log tail:
-${LOG_SNIPPET}"
-
-    echo "Email notification sent: FAILURE"
-  else
-    echo "Failure email suppressed (MAIL_ON_FAILURE=false)"
-  fi
-  echo "===== Borg Check Finished With Errors: $(date) ====="
-  exit 1
-fi

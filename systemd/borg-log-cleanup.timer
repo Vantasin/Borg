@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Borg log cleanup daily at 03:10
+
+[Timer]
+OnCalendar=*-*-* 03:10:00
+Persistent=true
+Unit=borg-log-cleanup.service
+
+[Install]
+WantedBy=timers.target
