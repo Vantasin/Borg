@@ -90,6 +90,10 @@ sudo make enable
 ```bash
 sudo make check
 ```
+11) Optional status review (human confirmation):
+```bash
+sudo make status
+```
 
 ## Validate and test
 ### Status:
