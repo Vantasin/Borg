@@ -17,7 +17,8 @@ all: install
 
 install: install-dirs install-scripts install-env install-units manifest-update cleanup-logrotate reload
 
-install-force: FORCE=1 install
+install-force:
+	$(MAKE) FORCE=1 install
 
 install-dirs:
 	$(INSTALL) -d -o root -g root -m 0755 $(BORG_DIR)
