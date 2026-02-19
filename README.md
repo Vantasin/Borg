@@ -150,6 +150,7 @@ Key variables in `/usr/local/sbin/borg/borg.env`:
 - `LOG_RUN_DIR` — default `/var/log/borg/runs`
 - `LOG_RETENTION_DAYS` — delete per-run logs older than this (default `90`)
 - `ARCHIVE_PREFIX` — archive name prefix (default `backup`)
+- `BORG_LOCK_WAIT` — seconds to wait for repo lock (default `3600`)
 - `MAIL_TO` / `MAIL_FROM` — msmtp notification addresses
 - `MAIL_ON_SUCCESS` / `MAIL_ON_FAILURE` / `MAIL_ON_SKIP` — `true/false` (or `1/0`) to send or suppress
 
@@ -175,7 +176,7 @@ sudo systemctl start borg-backup.service
   - Env template: `borg.env.example`; runtime config at `/usr/local/sbin/borg/borg.env` (`BORG_PASSPHRASE`, `BORG_REPO`, `SOURCE_PATH`, `ZFS_DATASET`, optional `REPO_DATASET`, `LOG_DIR`, `MAIL_TO`/`MAIL_FROM`, `MAIL_ON_SUCCESS`/`MAIL_ON_FAILURE`)
 - Recommended tests:
   - Periodic restore to a disposable directory (e.g., quarterly)
-  - Monitor timers: nightly backup, weekly `borg check`, monthly `borg check --verify-data`
+  - Monitor timers: nightly backup, `borg check` on 1st-3rd Saturdays, `borg check --verify-data` on the 4th Saturday
   - Review `/var/log/borg/` and `systemctl list-timers borg-*`
 
 ## Troubleshooting
