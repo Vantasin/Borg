@@ -11,7 +11,7 @@ LOG_DIR="${LOG_DIR:-/var/log/borg}"
 LOG_RUN_DIR="${LOG_RUN_DIR:-${LOG_DIR}/runs}"
 LOG_RETENTION_DAYS="${LOG_RETENTION_DAYS:-90}"
 
-log "===== Borg Log Cleanup Started: $(date -Is) ====="
+log "===== Borg Log Cleanup Started: $(date '+%a %d %b %Y %H:%M:%S %Z') ====="
 log "Log directory: ${LOG_RUN_DIR}"
 log "Retention (days): ${LOG_RETENTION_DAYS}"
 
@@ -35,4 +35,4 @@ DELETED=$(find "${LOG_RUN_DIR}" -type f -name '*.log' -mtime +"${LOG_RETENTION_D
 set -e
 
 log "Deleted ${DELETED} log files older than ${LOG_RETENTION_DAYS} days."
-log "===== Borg Log Cleanup Finished: $(date -Is) ====="
+log "===== Borg Log Cleanup Finished: $(date '+%a %d %b %Y %H:%M:%S %Z') ====="
