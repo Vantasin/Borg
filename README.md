@@ -86,6 +86,7 @@ tail -f /var/log/borg/backup_latest.log
 sudo make enable
 ```
 > This also enables `borg-log-cleanup.timer` for log retention.
+> One-shot deploy (install + enable + status): `sudo make deploy`.
 10) Optional sanity check:
 ```bash
 sudo make check
@@ -192,6 +193,7 @@ sudo systemctl start borg-backup.service
 ## Makefile targets (common)
 - `make install` / `make install-force` (overwrite borg.env with a timestamped backup): install scripts/units; remove stale installed files via manifest; reload systemd.
 - `make enable` / `make disable`: enable/disable timers.
+- `make deploy`: install + enable + status.
 - `make status`: show service/timer status and timers list.
 - `make check`: sanity-check installed paths/perms.
 - `make uninstall`: remove installed units/scripts (keeps `borg.env`).

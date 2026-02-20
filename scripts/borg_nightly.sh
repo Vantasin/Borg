@@ -229,20 +229,21 @@ Start: __START__
 End: __END__
 Duration: __DURATION__
 
-Exit codes:
-- borg create: __BORG_EXIT__
-- borg prune: __PRUNE_EXIT__
-- snapshot: __SNAP_EXIT__
-
-Archive sizes:
+Sizes:
+This archive:
 - Original size: __ARCHIVE_SIZE_ORIGINAL__
 - Compressed size: __ARCHIVE_SIZE_COMPRESSED__
 - Deduplicated size: __ARCHIVE_SIZE_DEDUP__
 
-Repository totals (all archives):
+All archives:
 - Original size: __REPO_SIZE_ORIGINAL__
 - Compressed size: __REPO_SIZE_COMPRESSED__
 - Deduplicated size: __REPO_SIZE_DEDUP__
+
+Exit codes:
+- borg create: __BORG_EXIT__
+- borg prune: __PRUNE_EXIT__
+- snapshot: __SNAP_EXIT__
 
 Warnings/Errors (__WARN_COUNT__):
 __WARN_LINES__
@@ -307,21 +308,32 @@ EOF_BODY
       <tr><td style="padding:4px 0;color:#6b7280;">End</td><td style="padding:4px 0;">__END__</td></tr>
       <tr><td style="padding:4px 0;color:#6b7280;">Duration</td><td style="padding:4px 0;">__DURATION__</td></tr>
     </table>
+    <div style="margin-top:12px;font-weight:600;font-size:14px;">Sizes</div>
+    <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:14px;">
+      <tr>
+        <td style="padding:4px 0;color:#6b7280;width:140px;"></td>
+        <td style="padding:4px 0;color:#6b7280;font-weight:600;">Original size</td>
+        <td style="padding:4px 0;color:#6b7280;font-weight:600;">Compressed size</td>
+        <td style="padding:4px 0;color:#6b7280;font-weight:600;">Deduplicated size</td>
+      </tr>
+      <tr>
+        <td style="padding:4px 0;color:#6b7280;">This archive</td>
+        <td style="padding:4px 0;">__ARCHIVE_SIZE_ORIGINAL__</td>
+        <td style="padding:4px 0;">__ARCHIVE_SIZE_COMPRESSED__</td>
+        <td style="padding:4px 0;">__ARCHIVE_SIZE_DEDUP__</td>
+      </tr>
+      <tr>
+        <td style="padding:4px 0;color:#6b7280;">All archives</td>
+        <td style="padding:4px 0;">__REPO_SIZE_ORIGINAL__</td>
+        <td style="padding:4px 0;">__REPO_SIZE_COMPRESSED__</td>
+        <td style="padding:4px 0;">__REPO_SIZE_DEDUP__</td>
+      </tr>
+    </table>
     <div style="margin-top:12px;font-weight:600;font-size:14px;">Exit codes</div>
     <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:14px;">
       <tr><td style="padding:4px 0;color:#6b7280;width:140px;">borg create</td><td style="padding:4px 0;">__BORG_EXIT__</td></tr>
       <tr><td style="padding:4px 0;color:#6b7280;">borg prune</td><td style="padding:4px 0;">__PRUNE_EXIT__</td></tr>
       <tr><td style="padding:4px 0;color:#6b7280;">snapshot</td><td style="padding:4px 0;">__SNAP_EXIT__</td></tr>
-    </table>
-    <div style="margin-top:12px;font-weight:600;font-size:14px;">Sizes</div>
-    <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:14px;">
-      <tr><td style="padding:4px 0;color:#6b7280;width:200px;">Archive original</td><td style="padding:4px 0;">__ARCHIVE_SIZE_ORIGINAL__</td></tr>
-      <tr><td style="padding:4px 0;color:#6b7280;">Archive compressed</td><td style="padding:4px 0;">__ARCHIVE_SIZE_COMPRESSED__</td></tr>
-      <tr><td style="padding:4px 0;color:#6b7280;">Archive deduplicated</td><td style="padding:4px 0;">__ARCHIVE_SIZE_DEDUP__</td></tr>
-      <tr><td colspan="2" style="padding:8px 0 2px;color:#6b7280;font-weight:600;">Repository totals (all archives)</td></tr>
-      <tr><td style="padding:4px 0;color:#6b7280;width:200px;">Original size</td><td style="padding:4px 0;">__REPO_SIZE_ORIGINAL__</td></tr>
-      <tr><td style="padding:4px 0;color:#6b7280;">Compressed size</td><td style="padding:4px 0;">__REPO_SIZE_COMPRESSED__</td></tr>
-      <tr><td style="padding:4px 0;color:#6b7280;">Deduplicated size</td><td style="padding:4px 0;">__REPO_SIZE_DEDUP__</td></tr>
     </table>
     <div style="margin-top:12px;font-weight:600;font-size:14px;">Warnings/Errors (__WARN_COUNT__)</div>
     <pre style="margin-top:6px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:8px;font-size:12px;white-space:pre-wrap;">__WARN_LINES__</pre>
@@ -458,25 +470,6 @@ borg create \
 BORG_EXIT=$?
 set -e
 
-if [ "${BORG_EXIT}" -le 1 ]; then
-  set +e
-  ARCHIVE_INFO=$(borg list "${BORG_REPO}" \
-    --lock-wait "${BORG_LOCK_WAIT}" \
-    --format '{archive}\t{size}\t{csize}\t{dsize}\n' 2>/dev/null \
-    | awk -F '\t' -v a="${ARCHIVE_NAME}" '$1 == a {print; exit}')
-  LIST_EXIT=$?
-  set -e
-
-  if [ "${LIST_EXIT}" -eq 0 ] && [ -n "${ARCHIVE_INFO}" ]; then
-    IFS=$'\t' read -r _ ARCHIVE_SIZE_ORIGINAL ARCHIVE_SIZE_COMPRESSED ARCHIVE_SIZE_DEDUP <<<"${ARCHIVE_INFO}"
-    ARCHIVE_SIZE_ORIGINAL=${ARCHIVE_SIZE_ORIGINAL:-n/a}
-    ARCHIVE_SIZE_COMPRESSED=${ARCHIVE_SIZE_COMPRESSED:-n/a}
-    ARCHIVE_SIZE_DEDUP=${ARCHIVE_SIZE_DEDUP:-n/a}
-  else
-    log "WARNING: Unable to read archive size info for ${ARCHIVE_NAME}."
-  fi
-fi
-
 ############################################################
 # 3. Prune Old Backups
 ############################################################
@@ -491,6 +484,27 @@ borg prune -v "${BORG_REPO}" \
   --keep-monthly=12
 PRUNE_EXIT=$?
 set -e
+
+if [ "${BORG_EXIT}" -le 1 ]; then
+  set +e
+  ARCHIVE_INFO_OUTPUT=$(borg info --lock-wait "${BORG_LOCK_WAIT}" "${BORG_REPO}::${ARCHIVE_NAME}" 2>/dev/null)
+  ARCHIVE_INFO_EXIT=$?
+  set -e
+
+  if [ "${ARCHIVE_INFO_EXIT}" -eq 0 ] && [ -n "${ARCHIVE_INFO_OUTPUT}" ]; then
+    ARCHIVE_SIZES=$(printf '%s\n' "${ARCHIVE_INFO_OUTPUT}" | awk '/^This archive:/ {print $3" "$4"\t"$5" "$6"\t"$7" "$8; exit}')
+    if [ -n "${ARCHIVE_SIZES}" ]; then
+      IFS=$'\t' read -r ARCHIVE_SIZE_ORIGINAL ARCHIVE_SIZE_COMPRESSED ARCHIVE_SIZE_DEDUP <<<"${ARCHIVE_SIZES}"
+      ARCHIVE_SIZE_ORIGINAL=${ARCHIVE_SIZE_ORIGINAL:-n/a}
+      ARCHIVE_SIZE_COMPRESSED=${ARCHIVE_SIZE_COMPRESSED:-n/a}
+      ARCHIVE_SIZE_DEDUP=${ARCHIVE_SIZE_DEDUP:-n/a}
+    else
+      log "WARNING: Unable to parse archive size info for ${ARCHIVE_NAME}."
+    fi
+  else
+    log "WARNING: Unable to read archive size info for ${ARCHIVE_NAME}."
+  fi
+fi
 
 if [ "${PRUNE_EXIT}" -le 1 ]; then
   set +e

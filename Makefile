@@ -11,7 +11,7 @@ SCRIPTS := borg_nightly.sh borg_check.sh borg_check_verify.sh borg_log_cleanup.s
 UNITS := borg-backup.service borg-backup.timer borg-check.service borg-check.timer borg-check-verify.service borg-check-verify.timer borg-log-cleanup.service borg-log-cleanup.timer
 TIMERS := borg-backup.timer borg-check.timer borg-check-verify.timer borg-log-cleanup.timer
 
-.PHONY: all install install-force install-dirs install-scripts install-env install-units manifest-update cleanup-logrotate reload enable disable status uninstall check help
+.PHONY: all install install-force install-dirs install-scripts install-env install-units manifest-update cleanup-logrotate reload enable disable status deploy uninstall check help
 
 all: install
 
@@ -86,6 +86,8 @@ enable: install
 disable:
 	-$(SYSTEMCTL) disable $(TIMERS)
 
+deploy: install enable status
+
 status:
 	-$(SYSTEMCTL) status $(TIMERS:.timer=.service) $(TIMERS)
 	-$(SYSTEMCTL) list-timers borg-*
@@ -119,5 +121,5 @@ check:
 	if [ $$ok -eq 1 ]; then echo "check: ok"; else echo "check: issues found"; exit 1; fi
 
 help:
-	@echo "Targets: install, enable, disable, status, uninstall, check, help"
+	@echo "Targets: install, enable, disable, deploy, status, uninstall, check, help"
 	@echo "Use FORCE=1 with make install to overwrite borg.env (creates timestamped backup)"
