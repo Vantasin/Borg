@@ -143,6 +143,13 @@ sudo borg extract /tank/Secure/Borg/backup-repo::backup-myhost-2025-01-01T02:30
 - `scripts/borg_log_cleanup.sh`: prunes old per-run logs (used by `borg-log-cleanup.timer`).
 - `docs/`: original operational notes (`Borg Backup Archive -- Backup Server.md`).
 - `borg.env.example`: sample environment; real config lives beside installed scripts.
+
+## Reference docs
+- `docs/Scripts.md`: purpose and behavior of each script.
+- `docs/Systemd.md`: services and timers reference.
+- `docs/Makefile.md`: install, deploy, and maintenance targets.
+- `docs/Configuration.md`: `borg.env` variables and rules.
+- `docs/Borg Backup Archive -- Backup Server.md`: original operational notes.
 - `Makefile`: install, enable/disable, status, check, uninstall targets.
 
 ## Security model and configuration

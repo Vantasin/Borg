@@ -317,24 +317,14 @@ EOF_BODY
     </table>
     <div style="margin-top:12px;font-weight:600;font-size:14px;">Sizes</div>
     <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:14px;">
-      <tr>
-        <td style="padding:4px 0;color:#6b7280;width:140px;"></td>
-        <td style="padding:4px 0;color:#6b7280;font-weight:600;">Original size</td>
-        <td style="padding:4px 0;color:#6b7280;font-weight:600;">Compressed size</td>
-        <td style="padding:4px 0;color:#6b7280;font-weight:600;">Deduplicated size</td>
-      </tr>
-      <tr>
-        <td style="padding:4px 0;color:#6b7280;">This archive</td>
-        <td style="padding:4px 0;">__ARCHIVE_SIZE_ORIGINAL__</td>
-        <td style="padding:4px 0;">__ARCHIVE_SIZE_COMPRESSED__</td>
-        <td style="padding:4px 0;">__ARCHIVE_SIZE_DEDUP__</td>
-      </tr>
-      <tr>
-        <td style="padding:4px 0;color:#6b7280;">All archives</td>
-        <td style="padding:4px 0;">__REPO_SIZE_ORIGINAL__</td>
-        <td style="padding:4px 0;">__REPO_SIZE_COMPRESSED__</td>
-        <td style="padding:4px 0;">__REPO_SIZE_DEDUP__</td>
-      </tr>
+      <tr><td colspan="2" style="padding:6px 0 2px;color:#6b7280;font-weight:600;">This archive</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;width:160px;">Original size</td><td style="padding:4px 0;">__ARCHIVE_SIZE_ORIGINAL__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Compressed size</td><td style="padding:4px 0;">__ARCHIVE_SIZE_COMPRESSED__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Deduplicated size</td><td style="padding:4px 0;">__ARCHIVE_SIZE_DEDUP__</td></tr>
+      <tr><td colspan="2" style="padding:8px 0 2px;color:#6b7280;font-weight:600;">All archives</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Original size</td><td style="padding:4px 0;">__REPO_SIZE_ORIGINAL__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Compressed size</td><td style="padding:4px 0;">__REPO_SIZE_COMPRESSED__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Deduplicated size</td><td style="padding:4px 0;">__REPO_SIZE_DEDUP__</td></tr>
     </table>
     <div style="margin-top:6px;color:#6b7280;font-size:12px;">Note: Sizes reflect repository state after prune.</div>
     __EXIT_SECTION_HTML__
