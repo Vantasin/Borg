@@ -242,6 +242,7 @@ All archives:
 - Original size: __REPO_SIZE_ORIGINAL__
 - Compressed size: __REPO_SIZE_COMPRESSED__
 - Deduplicated size: __REPO_SIZE_DEDUP__
+Note: Sizes reflect repository state after prune.
 
 Log: __LOG__
 EOF_BODY
@@ -335,6 +336,7 @@ EOF_BODY
         <td style="padding:4px 0;">__REPO_SIZE_DEDUP__</td>
       </tr>
     </table>
+    <div style="margin-top:6px;color:#6b7280;font-size:12px;">Note: Sizes reflect repository state after prune.</div>
     __EXIT_SECTION_HTML__
     __WARN_SECTION_HTML__
     <div style="margin-top:12px;color:#6b7280;font-size:13px;">Log: __LOG__</div>
