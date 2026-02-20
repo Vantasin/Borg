@@ -244,6 +244,7 @@ Exit codes:
 - borg create: __BORG_EXIT__
 - borg prune: __PRUNE_EXIT__
 - snapshot: __SNAP_EXIT__
+Legend: Borg 0=success; 1=completed with warnings (files changed, skipped, or unreadable); 2=fatal error. Snapshot 0=success; non-zero means create/destroy failed.
 
 Warnings/Errors (__WARN_COUNT__):
 __WARN_LINES__
@@ -335,6 +336,7 @@ EOF_BODY
       <tr><td style="padding:4px 0;color:#6b7280;">borg prune</td><td style="padding:4px 0;">__PRUNE_EXIT__</td></tr>
       <tr><td style="padding:4px 0;color:#6b7280;">snapshot</td><td style="padding:4px 0;">__SNAP_EXIT__</td></tr>
     </table>
+    <div style="margin-top:6px;color:#6b7280;font-size:12px;">Legend: Borg 0=success; 1=completed with warnings (files changed, skipped, or unreadable); 2=fatal error. Snapshot 0=success; non-zero means create/destroy failed.</div>
     <div style="margin-top:12px;font-weight:600;font-size:14px;">Warnings/Errors (__WARN_COUNT__)</div>
     <pre style="margin-top:6px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:8px;font-size:12px;white-space:pre-wrap;">__WARN_LINES__</pre>
     <div style="margin-top:12px;color:#6b7280;font-size:13px;">Log: __LOG__</div>

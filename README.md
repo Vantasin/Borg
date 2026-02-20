@@ -111,6 +111,10 @@ sudo make status
 - journal via `journalctl -u borg-backup.service -n 100`
 > Logs older than `LOG_RETENTION_DAYS` are deleted by `borg-log-cleanup.timer`.
 
+### Exit codes:
+- Borg: `0` success; `1` completed with warnings (files changed, skipped, or unreadable); `2` fatal error (backup/check failed).
+- Snapshot commands: `0` success; non-zero means snapshot create/destroy failed.
+
 ### Restore test (recommended periodically):
 
 1) Make the restore directory.
