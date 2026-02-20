@@ -212,9 +212,12 @@ EOF_HTML
   fi
 
   warn_count=$(count_matching '(WARNING|ERROR|Error:|CRITICAL|FAILED)' "${RUN_LOG}")
-  warn_lines=$(collect_warnings "${RUN_LOG}" 30)
-  if [ -z "${warn_lines}" ]; then
-    warn_lines="None"
+  warn_lines=""
+  if [ "${warn_count}" -gt 0 ]; then
+    warn_lines=$(collect_warnings "${RUN_LOG}" 30)
+    if [ -z "${warn_lines}" ]; then
+      warn_lines="See log for details."
+    fi
   fi
 
   subject="[${status}] Borg backup on ${HOSTNAME}"
@@ -240,15 +243,6 @@ All archives:
 - Compressed size: __REPO_SIZE_COMPRESSED__
 - Deduplicated size: __REPO_SIZE_DEDUP__
 
-Exit codes:
-- borg create: __BORG_EXIT__
-- borg prune: __PRUNE_EXIT__
-- snapshot: __SNAP_EXIT__
-Legend: Borg 0=success; 1=completed with warnings (files changed, skipped, or unreadable); 2=fatal error. Snapshot 0=success; non-zero means create/destroy failed.
-
-Warnings/Errors (__WARN_COUNT__):
-__WARN_LINES__
-
 Log: __LOG__
 EOF_BODY
 )
@@ -268,9 +262,20 @@ EOF_BODY
   body=${body//__REPO_SIZE_ORIGINAL__/${REPO_SIZE_ORIGINAL}}
   body=${body//__REPO_SIZE_COMPRESSED__/${REPO_SIZE_COMPRESSED}}
   body=${body//__REPO_SIZE_DEDUP__/${REPO_SIZE_DEDUP}}
-  body=${body//__WARN_COUNT__/${warn_count}}
-  body=${body//__WARN_LINES__/${warn_lines}}
   body=${body//__LOG__/${RUN_LOG}}
+
+  if [ "${BORG_EXIT}" -ne 0 ] || [ "${PRUNE_EXIT}" -ne 0 ] || [ "${SNAP_EXIT}" -ne 0 ]; then
+    body+=$'\nExit codes:\n'
+    body+="- borg create: ${BORG_EXIT}"$'\n'
+    body+="- borg prune: ${PRUNE_EXIT}"$'\n'
+    body+="- snapshot: ${SNAP_EXIT}"$'\n'
+    body+="Legend: Borg 0=success; 1=completed with warnings (files changed, skipped, or unreadable); 2=fatal error. Snapshot 0=success; non-zero means create/destroy failed."$'\n'
+  fi
+
+  if [ "${warn_count}" -gt 0 ]; then
+    body+=$'\nWarnings/Errors ('"${warn_count}"'):\n'
+    body+="${warn_lines}"$'\n'
+  fi
 
   h_status=$(html_escape "${status}")
   h_host=$(html_escape "${HOSTNAME}")
@@ -330,15 +335,8 @@ EOF_BODY
         <td style="padding:4px 0;">__REPO_SIZE_DEDUP__</td>
       </tr>
     </table>
-    <div style="margin-top:12px;font-weight:600;font-size:14px;">Exit codes</div>
-    <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:14px;">
-      <tr><td style="padding:4px 0;color:#6b7280;width:140px;">borg create</td><td style="padding:4px 0;">__BORG_EXIT__</td></tr>
-      <tr><td style="padding:4px 0;color:#6b7280;">borg prune</td><td style="padding:4px 0;">__PRUNE_EXIT__</td></tr>
-      <tr><td style="padding:4px 0;color:#6b7280;">snapshot</td><td style="padding:4px 0;">__SNAP_EXIT__</td></tr>
-    </table>
-    <div style="margin-top:6px;color:#6b7280;font-size:12px;">Legend: Borg 0=success; 1=completed with warnings (files changed, skipped, or unreadable); 2=fatal error. Snapshot 0=success; non-zero means create/destroy failed.</div>
-    <div style="margin-top:12px;font-weight:600;font-size:14px;">Warnings/Errors (__WARN_COUNT__)</div>
-    <pre style="margin-top:6px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:8px;font-size:12px;white-space:pre-wrap;">__WARN_LINES__</pre>
+    __EXIT_SECTION_HTML__
+    __WARN_SECTION_HTML__
     <div style="margin-top:12px;color:#6b7280;font-size:13px;">Log: __LOG__</div>
   </div>
 </body>
@@ -362,9 +360,38 @@ EOF_HTML
   html_body=${html_body//__REPO_SIZE_ORIGINAL__/${h_repo_size_original}}
   html_body=${html_body//__REPO_SIZE_COMPRESSED__/${h_repo_size_compressed}}
   html_body=${html_body//__REPO_SIZE_DEDUP__/${h_repo_size_dedup}}
-  html_body=${html_body//__WARN_COUNT__/${h_warn_count}}
-  html_body=${html_body//__WARN_LINES__/${h_warn_lines}}
   html_body=${html_body//__LOG__/${h_log}}
+
+  exit_section_html=""
+  if [ "${BORG_EXIT}" -ne 0 ] || [ "${PRUNE_EXIT}" -ne 0 ] || [ "${SNAP_EXIT}" -ne 0 ]; then
+    exit_section_html=$(cat <<'EOF_EXIT_HTML'
+    <div style="margin-top:12px;font-weight:600;font-size:14px;">Exit codes</div>
+    <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:14px;">
+      <tr><td style="padding:4px 0;color:#6b7280;width:140px;">borg create</td><td style="padding:4px 0;">__BORG_EXIT__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">borg prune</td><td style="padding:4px 0;">__PRUNE_EXIT__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">snapshot</td><td style="padding:4px 0;">__SNAP_EXIT__</td></tr>
+    </table>
+    <div style="margin-top:6px;color:#6b7280;font-size:12px;">Legend: Borg 0=success; 1=completed with warnings (files changed, skipped, or unreadable); 2=fatal error. Snapshot 0=success; non-zero means create/destroy failed.</div>
+EOF_EXIT_HTML
+)
+    exit_section_html=${exit_section_html//__BORG_EXIT__/${h_borg_exit}}
+    exit_section_html=${exit_section_html//__PRUNE_EXIT__/${h_prune_exit}}
+    exit_section_html=${exit_section_html//__SNAP_EXIT__/${h_snap_exit}}
+  fi
+
+  warn_section_html=""
+  if [ "${warn_count}" -gt 0 ]; then
+    warn_section_html=$(cat <<'EOF_WARN_HTML'
+    <div style="margin-top:12px;font-weight:600;font-size:14px;">Warnings/Errors (__WARN_COUNT__)</div>
+    <pre style="margin-top:6px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:8px;font-size:12px;white-space:pre-wrap;">__WARN_LINES__</pre>
+EOF_WARN_HTML
+)
+    warn_section_html=${warn_section_html//__WARN_COUNT__/${h_warn_count}}
+    warn_section_html=${warn_section_html//__WARN_LINES__/${h_warn_lines}}
+  fi
+
+  html_body=${html_body//__EXIT_SECTION_HTML__/${exit_section_html}}
+  html_body=${html_body//__WARN_SECTION_HTML__/${warn_section_html}}
 
   attachment="${RUN_LOG}"
 

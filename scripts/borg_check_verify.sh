@@ -177,9 +177,12 @@ EOF_HTML
   fi
 
   warn_count=$(count_matching '(WARNING|ERROR|Error:|CRITICAL|FAILED)' "${RUN_LOG}")
-  warn_lines=$(collect_warnings "${RUN_LOG}" 30)
-  if [ -z "${warn_lines}" ]; then
-    warn_lines="None"
+  warn_lines=""
+  if [ "${warn_count}" -gt 0 ]; then
+    warn_lines=$(collect_warnings "${RUN_LOG}" 30)
+    if [ -z "${warn_lines}" ]; then
+      warn_lines="See log for details."
+    fi
   fi
 
   subject="[${status}] Borg verify-data check on ${HOSTNAME}"
@@ -193,12 +196,6 @@ Start: __START__
 End: __END__
 Duration: __DURATION__
 
-Exit code: __CHECK_EXIT__
-Legend: Borg 0=success; 1=completed with warnings (files changed, skipped, or unreadable); 2=fatal error.
-
-Warnings/Errors (__WARN_COUNT__):
-__WARN_LINES__
-
 Log: __LOG__
 EOF_BODY
 )
@@ -208,10 +205,17 @@ EOF_BODY
   body=${body//__START__/${RUN_START_HUMAN}}
   body=${body//__END__/${run_end_human}}
   body=${body//__DURATION__/${run_duration}}
-  body=${body//__CHECK_EXIT__/${CHECK_EXIT}}
-  body=${body//__WARN_COUNT__/${warn_count}}
-  body=${body//__WARN_LINES__/${warn_lines}}
   body=${body//__LOG__/${RUN_LOG}}
+
+  if [ "${CHECK_EXIT}" -ne 0 ]; then
+    body+=$'\nExit code: '"${CHECK_EXIT}"$'\n'
+    body+="Legend: Borg 0=success; 1=completed with warnings (files changed, skipped, or unreadable); 2=fatal error."$'\n'
+  fi
+
+  if [ "${warn_count}" -gt 0 ]; then
+    body+=$'\nWarnings/Errors ('"${warn_count}"'):\n'
+    body+="${warn_lines}"$'\n'
+  fi
 
   h_status=$(html_escape "${status}")
   h_host=$(html_escape "${HOSTNAME}")
@@ -240,13 +244,8 @@ EOF_BODY
       <tr><td style="padding:4px 0;color:#6b7280;">End</td><td style="padding:4px 0;">__END__</td></tr>
       <tr><td style="padding:4px 0;color:#6b7280;">Duration</td><td style="padding:4px 0;">__DURATION__</td></tr>
     </table>
-    <div style="margin-top:12px;font-weight:600;font-size:14px;">Exit code</div>
-    <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:14px;">
-      <tr><td style="padding:4px 0;color:#6b7280;width:140px;">borg check</td><td style="padding:4px 0;">__CHECK_EXIT__</td></tr>
-    </table>
-    <div style="margin-top:6px;color:#6b7280;font-size:12px;">Legend: Borg 0=success; 1=completed with warnings (files changed, skipped, or unreadable); 2=fatal error.</div>
-    <div style="margin-top:12px;font-weight:600;font-size:14px;">Warnings/Errors (__WARN_COUNT__)</div>
-    <pre style="margin-top:6px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:8px;font-size:12px;white-space:pre-wrap;">__WARN_LINES__</pre>
+    __EXIT_SECTION_HTML__
+    __WARN_SECTION_HTML__
     <div style="margin-top:12px;color:#6b7280;font-size:13px;">Log: __LOG__</div>
   </div>
 </body>
@@ -260,10 +259,34 @@ EOF_HTML
   html_body=${html_body//__START__/${h_start}}
   html_body=${html_body//__END__/${h_end}}
   html_body=${html_body//__DURATION__/${h_duration}}
-  html_body=${html_body//__CHECK_EXIT__/${h_check_exit}}
-  html_body=${html_body//__WARN_COUNT__/${h_warn_count}}
-  html_body=${html_body//__WARN_LINES__/${h_warn_lines}}
   html_body=${html_body//__LOG__/${h_log}}
+
+  exit_section_html=""
+  if [ "${CHECK_EXIT}" -ne 0 ]; then
+    exit_section_html=$(cat <<'EOF_EXIT_HTML'
+    <div style="margin-top:12px;font-weight:600;font-size:14px;">Exit code</div>
+    <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:14px;">
+      <tr><td style="padding:4px 0;color:#6b7280;width:140px;">borg check</td><td style="padding:4px 0;">__CHECK_EXIT__</td></tr>
+    </table>
+    <div style="margin-top:6px;color:#6b7280;font-size:12px;">Legend: Borg 0=success; 1=completed with warnings (files changed, skipped, or unreadable); 2=fatal error.</div>
+EOF_EXIT_HTML
+)
+    exit_section_html=${exit_section_html//__CHECK_EXIT__/${h_check_exit}}
+  fi
+
+  warn_section_html=""
+  if [ "${warn_count}" -gt 0 ]; then
+    warn_section_html=$(cat <<'EOF_WARN_HTML'
+    <div style="margin-top:12px;font-weight:600;font-size:14px;">Warnings/Errors (__WARN_COUNT__)</div>
+    <pre style="margin-top:6px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:8px;font-size:12px;white-space:pre-wrap;">__WARN_LINES__</pre>
+EOF_WARN_HTML
+)
+    warn_section_html=${warn_section_html//__WARN_COUNT__/${h_warn_count}}
+    warn_section_html=${warn_section_html//__WARN_LINES__/${h_warn_lines}}
+  fi
+
+  html_body=${html_body//__EXIT_SECTION_HTML__/${exit_section_html}}
+  html_body=${html_body//__WARN_SECTION_HTML__/${warn_section_html}}
 
   attachment=""
   if [ "${status}" != "OK" ]; then
