@@ -16,6 +16,7 @@ SOURCE_PATH="${SOURCE_PATH:-/tank/Secure/backup}"
 BORG_REPO="${BORG_REPO:-/tank/Secure/Borg/backup-repo}"
 REPO_DATASET="${REPO_DATASET:-}"
 ARCHIVE_PREFIX="${ARCHIVE_PREFIX:-backup}"
+BORG_LOCK_WAIT="${BORG_LOCK_WAIT:-3600}"
 
 LOG_DIR="${LOG_DIR:-/var/log/borg}"
 LOG_RUN_DIR="${LOG_RUN_DIR:-${LOG_DIR}/runs}"
@@ -30,7 +31,7 @@ require_passphrase
 setup_logging "${JOB_NAME}"
 
 RUN_START_EPOCH=$(date +%s)
-RUN_START_HUMAN="$(date -Is)"
+RUN_START_HUMAN="$(date '+%a %d %b %Y %H:%M:%S %Z')"
 HOSTNAME="$(hostname)"
 ARCHIVE_NAME="${ARCHIVE_PREFIX}-${HOSTNAME}-${RUN_ID}"
 SNAP_NAME="${SNAP_NAME:-borg_${RUN_ID}}"
@@ -38,16 +39,10 @@ SNAP_NAME="${SNAP_NAME:-borg_${RUN_ID}}"
 BORG_EXIT=0
 PRUNE_EXIT=0
 SNAP_EXIT=0
-INFO_EXIT=0
 SKIPPED=0
 SKIP_REASON=""
 SNAP_CREATED=0
 SNAP_DESTROYED=0
-
-CREATE_LOG=""
-PRUNE_LOG=""
-INFO_LOG=""
-
 finalize() {
   local exit_code="$1"
   local run_end_epoch
@@ -57,19 +52,27 @@ finalize() {
   local final_exit
   local warn_count
   local warn_lines
-  local files
-  local original_size
-  local compressed_size
-  local dedup_size
-  local prune_keep
-  local prune_prune
-  local prune_deleted
   local subject
   local body
+  local html_body
+  local h_status
+  local h_host
+  local h_archive
+  local h_repo
+  local h_start
+  local h_end
+  local h_duration
+  local h_borg_exit
+  local h_prune_exit
+  local h_snap_exit
+  local h_warn_count
+  local h_warn_lines
+  local h_log
+  local badge_color
   local attachment
 
   run_end_epoch=$(date +%s)
-  run_end_human="$(date -Is)"
+  run_end_human="$(date '+%a %d %b %Y %H:%M:%S %Z')"
   run_duration=$(format_duration $((run_end_epoch - RUN_START_EPOCH)))
 
   if [ "${SNAP_CREATED}" -eq 1 ] && [ "${SNAP_DESTROYED}" -eq 0 ]; then
@@ -88,6 +91,16 @@ finalize() {
     local skip_subject
     local skip_body
     local skip_reason
+    local skip_html
+    local h_status
+    local h_host
+    local h_repo
+    local h_start
+    local h_end
+    local h_duration
+    local h_reason
+    local h_log
+    local badge_color
 
     skip_reason="${SKIP_REASON:-Unspecified skip reason}"
     skip_subject="[SKIP] Borg backup on ${HOSTNAME}"
@@ -113,9 +126,52 @@ EOF_BODY
     skip_body=${skip_body//__REASON__/${skip_reason}}
     skip_body=${skip_body//__LOG__/${RUN_LOG}}
 
+    h_status=$(html_escape "SKIP")
+    h_host=$(html_escape "${HOSTNAME}")
+    h_repo=$(html_escape "${BORG_REPO}")
+    h_start=$(html_escape "${RUN_START_HUMAN}")
+    h_end=$(html_escape "${run_end_human}")
+    h_duration=$(html_escape "${run_duration}")
+    h_reason=$(html_escape "${skip_reason}")
+    h_log=$(html_escape "${RUN_LOG}")
+    badge_color=$(status_color "SKIP")
+
+    skip_html=$(cat <<'EOF_HTML'
+<html>
+<body style="margin:0;padding:16px;background:#f3f4f6;">
+  <div style="max-width:720px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111827;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="display:inline-block;padding:4px 10px;border-radius:999px;background:__BADGE_COLOR__;color:#fff;font-size:12px;font-weight:600;letter-spacing:0.3px;">__STATUS__</span>
+      <span style="font-size:16px;font-weight:600;">Borg Backup Skipped</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-top:12px;font-size:14px;">
+      <tr><td style="padding:4px 0;color:#6b7280;width:140px;">Host</td><td style="padding:4px 0;">__HOST__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Repository</td><td style="padding:4px 0;">__REPO__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Start</td><td style="padding:4px 0;">__START__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">End</td><td style="padding:4px 0;">__END__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Duration</td><td style="padding:4px 0;">__DURATION__</td></tr>
+    </table>
+    <div style="margin-top:12px;font-weight:600;font-size:14px;">Reason</div>
+    <pre style="margin-top:6px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:8px;font-size:12px;white-space:pre-wrap;">__REASON__</pre>
+    <div style="margin-top:12px;color:#6b7280;font-size:13px;">Log: __LOG__</div>
+  </div>
+</body>
+</html>
+EOF_HTML
+)
+    skip_html=${skip_html//__BADGE_COLOR__/${badge_color}}
+    skip_html=${skip_html//__STATUS__/${h_status}}
+    skip_html=${skip_html//__HOST__/${h_host}}
+    skip_html=${skip_html//__REPO__/${h_repo}}
+    skip_html=${skip_html//__START__/${h_start}}
+    skip_html=${skip_html//__END__/${h_end}}
+    skip_html=${skip_html//__DURATION__/${h_duration}}
+    skip_html=${skip_html//__REASON__/${h_reason}}
+    skip_html=${skip_html//__LOG__/${h_log}}
+
     if is_enabled "${MAIL_ON_SKIP}"; then
       set +e
-      send_mail "${skip_subject}" "${skip_body}"
+      send_mail "${skip_subject}" "${skip_body}" "" "${skip_html}"
       MAIL_EXIT=$?
       set -e
       if [ "${MAIL_EXIT}" -eq 0 ]; then
@@ -127,7 +183,7 @@ EOF_BODY
       log "Skip email suppressed (MAIL_ON_SKIP=false)"
     fi
 
-    log "===== Borg Backup Skipped: $(date -Is) ====="
+    log "===== Borg Backup Skipped: $(date '+%a %d %b %Y %H:%M:%S %Z') ====="
     exit 0
   fi
 
@@ -149,31 +205,6 @@ EOF_BODY
     warn_lines="None"
   fi
 
-  files="n/a"
-  original_size="n/a"
-  compressed_size="n/a"
-  dedup_size="n/a"
-  if [ -n "${INFO_LOG}" ] && [ -f "${INFO_LOG}" ]; then
-    files=$(extract_value "Number of files" "${INFO_LOG}")
-    original_size=$(extract_value "Original size" "${INFO_LOG}")
-    compressed_size=$(extract_value "Compressed size" "${INFO_LOG}")
-    dedup_size=$(extract_value "Deduplicated size" "${INFO_LOG}")
-    files=${files:-n/a}
-    original_size=${original_size:-n/a}
-    compressed_size=${compressed_size:-n/a}
-    dedup_size=${dedup_size:-n/a}
-  fi
-
-  prune_keep="n/a"
-  prune_prune="n/a"
-  prune_deleted="n/a"
-  if [ -n "${PRUNE_LOG}" ] && [ -f "${PRUNE_LOG}" ]; then
-    prune_keep=$(count_matching '^Keeping archive:' "${PRUNE_LOG}")
-    prune_prune=$(count_matching '^Pruning archive:' "${PRUNE_LOG}")
-    prune_deleted=$(extract_value "Deleted data" "${PRUNE_LOG}")
-    prune_deleted=${prune_deleted:-n/a}
-  fi
-
   subject="[${status}] Borg backup on ${HOSTNAME}"
   body=$(cat <<'EOF_BODY'
 Borg Backup Summary
@@ -191,17 +222,6 @@ Exit codes:
 - borg prune: __PRUNE_EXIT__
 - snapshot: __SNAP_EXIT__
 
-Create stats:
-- Files: __FILES__
-- Original size: __ORIGINAL__
-- Compressed size: __COMPRESSED__
-- Deduplicated size: __DEDUP__
-
-Prune stats:
-- Kept: __KEPT__
-- Pruned: __PRUNED__
-- Deleted data: __DELETED__
-
 Warnings/Errors (__WARN_COUNT__):
 __WARN_LINES__
 
@@ -218,26 +238,76 @@ EOF_BODY
   body=${body//__BORG_EXIT__/${BORG_EXIT}}
   body=${body//__PRUNE_EXIT__/${PRUNE_EXIT}}
   body=${body//__SNAP_EXIT__/${SNAP_EXIT}}
-  body=${body//__FILES__/${files}}
-  body=${body//__ORIGINAL__/${original_size}}
-  body=${body//__COMPRESSED__/${compressed_size}}
-  body=${body//__DEDUP__/${dedup_size}}
-  body=${body//__KEPT__/${prune_keep}}
-  body=${body//__PRUNED__/${prune_prune}}
-  body=${body//__DELETED__/${prune_deleted}}
   body=${body//__WARN_COUNT__/${warn_count}}
   body=${body//__WARN_LINES__/${warn_lines}}
   body=${body//__LOG__/${RUN_LOG}}
 
-  attachment=""
-  if [ "${status}" != "OK" ]; then
-    attachment="${RUN_LOG}"
-  fi
+  h_status=$(html_escape "${status}")
+  h_host=$(html_escape "${HOSTNAME}")
+  h_archive=$(html_escape "${ARCHIVE_NAME}")
+  h_repo=$(html_escape "${BORG_REPO}")
+  h_start=$(html_escape "${RUN_START_HUMAN}")
+  h_end=$(html_escape "${run_end_human}")
+  h_duration=$(html_escape "${run_duration}")
+  h_borg_exit=$(html_escape "${BORG_EXIT}")
+  h_prune_exit=$(html_escape "${PRUNE_EXIT}")
+  h_snap_exit=$(html_escape "${SNAP_EXIT}")
+  h_warn_count=$(html_escape "${warn_count}")
+  h_warn_lines=$(html_escape "${warn_lines}")
+  h_log=$(html_escape "${RUN_LOG}")
+  badge_color=$(status_color "${status}")
+
+  html_body=$(cat <<'EOF_HTML'
+<html>
+<body style="margin:0;padding:16px;background:#f3f4f6;">
+  <div style="max-width:720px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111827;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="display:inline-block;padding:4px 10px;border-radius:999px;background:__BADGE_COLOR__;color:#fff;font-size:12px;font-weight:600;letter-spacing:0.3px;">__STATUS__</span>
+      <span style="font-size:16px;font-weight:600;">Borg Backup Summary</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-top:12px;font-size:14px;">
+      <tr><td style="padding:4px 0;color:#6b7280;width:140px;">Host</td><td style="padding:4px 0;">__HOST__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Archive</td><td style="padding:4px 0;">__ARCHIVE__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Repository</td><td style="padding:4px 0;">__REPO__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Start</td><td style="padding:4px 0;">__START__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">End</td><td style="padding:4px 0;">__END__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Duration</td><td style="padding:4px 0;">__DURATION__</td></tr>
+    </table>
+    <div style="margin-top:12px;font-weight:600;font-size:14px;">Exit codes</div>
+    <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:14px;">
+      <tr><td style="padding:4px 0;color:#6b7280;width:140px;">borg create</td><td style="padding:4px 0;">__BORG_EXIT__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">borg prune</td><td style="padding:4px 0;">__PRUNE_EXIT__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">snapshot</td><td style="padding:4px 0;">__SNAP_EXIT__</td></tr>
+    </table>
+    <div style="margin-top:12px;font-weight:600;font-size:14px;">Warnings/Errors (__WARN_COUNT__)</div>
+    <pre style="margin-top:6px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:8px;font-size:12px;white-space:pre-wrap;">__WARN_LINES__</pre>
+    <div style="margin-top:12px;color:#6b7280;font-size:13px;">Log: __LOG__</div>
+  </div>
+</body>
+</html>
+EOF_HTML
+)
+  html_body=${html_body//__BADGE_COLOR__/${badge_color}}
+  html_body=${html_body//__STATUS__/${h_status}}
+  html_body=${html_body//__HOST__/${h_host}}
+  html_body=${html_body//__ARCHIVE__/${h_archive}}
+  html_body=${html_body//__REPO__/${h_repo}}
+  html_body=${html_body//__START__/${h_start}}
+  html_body=${html_body//__END__/${h_end}}
+  html_body=${html_body//__DURATION__/${h_duration}}
+  html_body=${html_body//__BORG_EXIT__/${h_borg_exit}}
+  html_body=${html_body//__PRUNE_EXIT__/${h_prune_exit}}
+  html_body=${html_body//__SNAP_EXIT__/${h_snap_exit}}
+  html_body=${html_body//__WARN_COUNT__/${h_warn_count}}
+  html_body=${html_body//__WARN_LINES__/${h_warn_lines}}
+  html_body=${html_body//__LOG__/${h_log}}
+
+  attachment="${RUN_LOG}"
 
   if [ "${status}" = "OK" ]; then
     if is_enabled "${MAIL_ON_SUCCESS}"; then
       set +e
-      send_mail "${subject}" "${body}" "${attachment}"
+      send_mail "${subject}" "${body}" "${attachment}" "${html_body}"
       MAIL_EXIT=$?
       set -e
       if [ "${MAIL_EXIT}" -eq 0 ]; then
@@ -251,7 +321,7 @@ EOF_BODY
   else
     if is_enabled "${MAIL_ON_FAILURE}"; then
       set +e
-      send_mail "${subject}" "${body}" "${attachment}"
+      send_mail "${subject}" "${body}" "${attachment}" "${html_body}"
       MAIL_EXIT=$?
       set -e
       if [ "${MAIL_EXIT}" -eq 0 ]; then
@@ -264,12 +334,10 @@ EOF_BODY
     fi
   fi
 
-  rm -f "${CREATE_LOG}" "${PRUNE_LOG}" "${INFO_LOG}" 2>/dev/null || true
-
   if [ "${status}" = "OK" ]; then
-    log "===== Borg Backup Finished Successfully: $(date -Is) ====="
+    log "===== Borg Backup Finished Successfully: $(date '+%a %d %b %Y %H:%M:%S %Z') ====="
   else
-    log "===== Borg Backup Finished With Errors: $(date -Is) ====="
+    log "===== Borg Backup Finished With Errors: $(date '+%a %d %b %Y %H:%M:%S %Z') ====="
   fi
 
   exit "${final_exit}"
@@ -329,44 +397,30 @@ SNAP_CREATED=1
 # 2. Run Borg Backup
 ############################################################
 log "Running Borg backup: ${ARCHIVE_NAME}"
-CREATE_LOG=$(mktemp)
 set +e
 borg create \
   --stats \
+  --lock-wait "${BORG_LOCK_WAIT}" \
   --compression zstd,6 \
   "${BORG_REPO}::${ARCHIVE_NAME}" \
   "${SOURCE_PATH}" \
-  --exclude "${SOURCE_PATH}/.zfs" \
-  2>&1 | tee "${CREATE_LOG}"
-BORG_EXIT=${PIPESTATUS[0]}
+  --exclude "${SOURCE_PATH}/.zfs"
+BORG_EXIT=$?
 set -e
-
-if [ "${BORG_EXIT}" -le 1 ]; then
-  INFO_LOG=$(mktemp)
-  set +e
-  borg info "${BORG_REPO}::${ARCHIVE_NAME}" 2>&1 | tee "${INFO_LOG}"
-  INFO_EXIT=${PIPESTATUS[0]}
-  set -e
-
-  if [ "${INFO_EXIT}" -ne 0 ]; then
-    log "WARNING: borg info failed (exit ${INFO_EXIT})."
-  fi
-fi
 
 ############################################################
 # 3. Prune Old Backups
 ############################################################
 log "Pruning old Borg archives"
-PRUNE_LOG=$(mktemp)
 set +e
 borg prune -v "${BORG_REPO}" \
   --list \
   --stats \
+  --lock-wait "${BORG_LOCK_WAIT}" \
   --keep-daily=7 \
   --keep-weekly=4 \
-  --keep-monthly=12 \
-  2>&1 | tee "${PRUNE_LOG}"
-PRUNE_EXIT=${PIPESTATUS[0]}
+  --keep-monthly=12
+PRUNE_EXIT=$?
 set -e
 
 ############################################################

@@ -25,7 +25,7 @@ require_passphrase() {
 }
 
 log() {
-  printf '%s %s\n' "$(date -Is)" "$*"
+  printf '%s %s\n' "$(date '+%a %d %b %Y %H:%M:%S %Z')" "$*"
 }
 
 setup_logging() {
@@ -72,10 +72,12 @@ is_enabled() {
 
 send_mail() {
   local subject="$1"
-  local body="$2"
+  local text_body="$2"
   local attachment="${3:-}"
+  local html_body="${4:-}"
   local msmtp_bin
   local boundary
+  local alt_boundary
 
   msmtp_bin="$(command -v msmtp || true)"
   if [ -z "${msmtp_bin}" ]; then
@@ -83,7 +85,53 @@ send_mail() {
     return 1
   fi
 
-  if [ -n "${attachment}" ] && [ -f "${attachment}" ]; then
+  if [ -n "${html_body}" ]; then
+    alt_boundary="====borg_alt_$(date +%s%N)===="
+    if [ -n "${attachment}" ] && [ -f "${attachment}" ]; then
+      boundary="====borg_mixed_$(date +%s%N)===="
+      {
+        printf "From: %s\n" "${MAIL_FROM}"
+        printf "To: %s\n" "${MAIL_TO}"
+        printf "Subject: %s\n" "${subject}"
+        printf "MIME-Version: 1.0\n"
+        printf "Content-Type: multipart/mixed; boundary=\"%s\"\n\n" "${boundary}"
+        printf "--%s\n" "${boundary}"
+        printf "Content-Type: multipart/alternative; boundary=\"%s\"\n\n" "${alt_boundary}"
+        printf "--%s\n" "${alt_boundary}"
+        printf "Content-Type: text/plain; charset=UTF-8\n"
+        printf "Content-Transfer-Encoding: 8bit\n\n"
+        printf "%s\n\n" "${text_body}"
+        printf "--%s\n" "${alt_boundary}"
+        printf "Content-Type: text/html; charset=UTF-8\n"
+        printf "Content-Transfer-Encoding: 8bit\n\n"
+        printf "%s\n\n" "${html_body}"
+        printf "--%s--\n" "${alt_boundary}"
+        printf "--%s\n" "${boundary}"
+        printf "Content-Type: text/plain; name=\"%s\"\n" "$(basename "${attachment}")"
+        printf "Content-Disposition: attachment; filename=\"%s\"\n" "$(basename "${attachment}")"
+        printf "Content-Transfer-Encoding: 8bit\n\n"
+        cat "${attachment}"
+        printf "\n\n--%s--\n" "${boundary}"
+      } | "${msmtp_bin}" -a default "${MAIL_TO}"
+    else
+      {
+        printf "From: %s\n" "${MAIL_FROM}"
+        printf "To: %s\n" "${MAIL_TO}"
+        printf "Subject: %s\n" "${subject}"
+        printf "MIME-Version: 1.0\n"
+        printf "Content-Type: multipart/alternative; boundary=\"%s\"\n\n" "${alt_boundary}"
+        printf "--%s\n" "${alt_boundary}"
+        printf "Content-Type: text/plain; charset=UTF-8\n"
+        printf "Content-Transfer-Encoding: 8bit\n\n"
+        printf "%s\n\n" "${text_body}"
+        printf "--%s\n" "${alt_boundary}"
+        printf "Content-Type: text/html; charset=UTF-8\n"
+        printf "Content-Transfer-Encoding: 8bit\n\n"
+        printf "%s\n\n" "${html_body}"
+        printf "--%s--\n" "${alt_boundary}"
+      } | "${msmtp_bin}" -a default "${MAIL_TO}"
+    fi
+  elif [ -n "${attachment}" ] && [ -f "${attachment}" ]; then
     boundary="====borg_$(date +%s%N)===="
     {
       printf "From: %s\n" "${MAIL_FROM}"
@@ -94,7 +142,7 @@ send_mail() {
       printf "--%s\n" "${boundary}"
       printf "Content-Type: text/plain; charset=UTF-8\n"
       printf "Content-Transfer-Encoding: 8bit\n\n"
-      printf "%s\n\n" "${body}"
+      printf "%s\n\n" "${text_body}"
       printf "--%s\n" "${boundary}"
       printf "Content-Type: text/plain; name=\"%s\"\n" "$(basename "${attachment}")"
       printf "Content-Disposition: attachment; filename=\"%s\"\n" "$(basename "${attachment}")"
@@ -104,9 +152,27 @@ send_mail() {
     } | "${msmtp_bin}" -a default "${MAIL_TO}"
   else
     printf "From: %s\nTo: %s\nSubject: %s\n\n%s\n" \
-      "${MAIL_FROM}" "${MAIL_TO}" "${subject}" "${body}" \
+      "${MAIL_FROM}" "${MAIL_TO}" "${subject}" "${text_body}" \
       | "${msmtp_bin}" -a default "${MAIL_TO}"
   fi
+}
+
+html_escape() {
+  local value="$1"
+  value=${value//&/&amp;}
+  value=${value//</&lt;}
+  value=${value//>/&gt;}
+  printf '%s' "${value}"
+}
+
+status_color() {
+  case "$1" in
+    OK) echo "#16a34a" ;;
+    WARN) echo "#d97706" ;;
+    FAIL) echo "#dc2626" ;;
+    SKIP) echo "#6b7280" ;;
+    *) echo "#2563eb" ;;
+  esac
 }
 
 format_duration() {
