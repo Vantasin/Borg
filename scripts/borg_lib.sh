@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Shared helpers for all Borg scripts: env loading, logging, mail, and checks.
+
 ############################################################
 # Optional env file load (services use EnvironmentFile)
 ############################################################
@@ -32,6 +34,7 @@ setup_logging() {
   local job_name="$1"
   local old_umask
 
+  # Create per-run log files with restricted permissions and a latest symlink.
   : "${LOG_DIR:=/var/log/borg}"
   : "${LOG_RUN_DIR:=${LOG_DIR}/runs}"
 
@@ -79,6 +82,7 @@ send_mail() {
   local boundary
   local alt_boundary
 
+  # Build a minimal MIME message for text/HTML and optional attachment.
   msmtp_bin="$(command -v msmtp || true)"
   if [ -z "${msmtp_bin}" ]; then
     log "WARNING: msmtp not found; unable to send email."
@@ -216,6 +220,7 @@ collect_warnings() {
 }
 
 skip_run() {
+  # Mark run as skipped and exit 0 so timers retry without failure spam.
   SKIPPED=1
   SKIP_REASON="$1"
   log "$1"

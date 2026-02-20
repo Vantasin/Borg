@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Weekly integrity check (borg check) with structured email summary.
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/borg_lib.sh"
@@ -35,6 +37,7 @@ CHECK_EXIT=0
 SKIPPED=0
 SKIP_REASON=""
 
+# Finalizer: always runs via trap to send notifications.
 finalize() {
   local exit_code="$1"
   local run_end_epoch

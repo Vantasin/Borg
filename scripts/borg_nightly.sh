@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Nightly backup workflow:
+# - validate mounts and datasets
+# - snapshot source dataset
+# - borg create + prune
+# - collect post-prune size summaries
+# - send email summary and attach log on failure
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/borg_lib.sh"
@@ -49,6 +56,7 @@ ARCHIVE_SIZE_DEDUP="n/a"
 REPO_SIZE_ORIGINAL="n/a"
 REPO_SIZE_COMPRESSED="n/a"
 REPO_SIZE_DEDUP="n/a"
+# Finalizer: always runs via trap to send notifications and clean up snapshots.
 finalize() {
   local exit_code="$1"
   local run_end_epoch
@@ -507,6 +515,7 @@ PRUNE_EXIT=$?
 set -e
 
 if [ "${BORG_EXIT}" -le 1 ]; then
+  # Capture size summaries after prune to reflect current repo state.
   set +e
   ARCHIVE_INFO_OUTPUT=$(borg info --lock-wait "${BORG_LOCK_WAIT}" "${BORG_REPO}::${ARCHIVE_NAME}" 2>/dev/null)
   ARCHIVE_INFO_EXIT=$?
