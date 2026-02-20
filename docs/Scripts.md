@@ -16,7 +16,7 @@ Key actions:
 - Runs `borg create` with stats and lock-wait.
 - Runs `borg prune` with retention rules and stats.
 - Collects post-prune size summaries from `borg info`.
-- Sends a structured email (text + HTML) and attaches the full log on failure.
+- Sends a structured email (text + HTML) and attaches the full log.
 - Removes the snapshot after backup.
 
 Primary inputs:
@@ -33,7 +33,7 @@ Purpose: weekly repository integrity check.
 Key actions:
 - Validates repo availability and mountpoints.
 - Runs `borg check` with lock-wait.
-- Sends a structured email (text + HTML) and attaches the log on failure.
+- Sends a structured email (text + HTML) and attaches the log.
 
 Primary inputs:
 - `BORG_REPO`, `BORG_LOCK_WAIT`.
@@ -48,7 +48,7 @@ Purpose: monthly data verification with `borg check --verify-data`.
 Key actions:
 - Validates repo availability and mountpoints.
 - Runs `borg check --verify-data` with lock-wait.
-- Sends a structured email (text + HTML) and attaches the log on failure.
+- Sends a structured email (text + HTML) and attaches the log.
 
 Primary inputs:
 - `BORG_REPO`, `BORG_LOCK_WAIT`.

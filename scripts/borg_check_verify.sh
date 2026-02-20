@@ -291,10 +291,7 @@ EOF_WARN_HTML
   html_body=${html_body//__EXIT_SECTION_HTML__/${exit_section_html}}
   html_body=${html_body//__WARN_SECTION_HTML__/${warn_section_html}}
 
-  attachment=""
-  if [ "${status}" != "OK" ]; then
-    attachment="${RUN_LOG}"
-  fi
+  attachment="${RUN_LOG}"
 
   if [ "${status}" = "OK" ]; then
     if is_enabled "${MAIL_ON_SUCCESS}"; then
