@@ -3,9 +3,9 @@
 This document describes the systemd services and timers under `systemd/`.
 
 See also:
-- `Scripts.md`
-- `Configuration.md`
-- `Makefile.md`
+- [Scripts](Scripts.md)
+- [Configuration](Configuration.md)
+- [Makefile](Makefile.md)
 
 All services:
 - Run as root (`Type=oneshot`).

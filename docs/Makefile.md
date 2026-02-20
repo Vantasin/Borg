@@ -3,9 +3,9 @@
 This document summarizes Make targets and their effects.
 
 See also:
-- `Scripts.md`
-- `Systemd.md`
-- `Configuration.md`
+- [Scripts](Scripts.md)
+- [Systemd](Systemd.md)
+- [Configuration](Configuration.md)
 
 ## install
 - Copies scripts to `/usr/local/sbin/borg`.

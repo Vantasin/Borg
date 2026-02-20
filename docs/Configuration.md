@@ -3,9 +3,9 @@
 This document covers `borg.env.example` and the runtime env file.
 
 See also:
-- `Scripts.md`
-- `Systemd.md`
-- `Makefile.md`
+- [Scripts](Scripts.md)
+- [Systemd](Systemd.md)
+- [Makefile](Makefile.md)
 
 ## borg.env.example
 The example file documents supported environment variables and defaults.

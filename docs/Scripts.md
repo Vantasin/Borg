@@ -3,9 +3,9 @@
 This document describes the purpose and behavior of each script in `scripts/`.
 
 See also:
-- `Systemd.md`
-- `Configuration.md`
-- `Makefile.md`
+- [Systemd](Systemd.md)
+- [Configuration](Configuration.md)
+- [Makefile](Makefile.md)
 
 ## borg_nightly.sh
 Purpose: nightly backup workflow with snapshot + create + prune + email summary.
