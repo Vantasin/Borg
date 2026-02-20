@@ -43,6 +43,12 @@ SKIPPED=0
 SKIP_REASON=""
 SNAP_CREATED=0
 SNAP_DESTROYED=0
+ARCHIVE_SIZE_ORIGINAL="n/a"
+ARCHIVE_SIZE_COMPRESSED="n/a"
+ARCHIVE_SIZE_DEDUP="n/a"
+REPO_SIZE_ORIGINAL="n/a"
+REPO_SIZE_COMPRESSED="n/a"
+REPO_SIZE_DEDUP="n/a"
 finalize() {
   local exit_code="$1"
   local run_end_epoch
@@ -65,6 +71,12 @@ finalize() {
   local h_borg_exit
   local h_prune_exit
   local h_snap_exit
+  local h_archive_size_original
+  local h_archive_size_compressed
+  local h_archive_size_dedup
+  local h_repo_size_original
+  local h_repo_size_compressed
+  local h_repo_size_dedup
   local h_warn_count
   local h_warn_lines
   local h_log
@@ -222,6 +234,16 @@ Exit codes:
 - borg prune: __PRUNE_EXIT__
 - snapshot: __SNAP_EXIT__
 
+Archive sizes:
+- Original size: __ARCHIVE_SIZE_ORIGINAL__
+- Compressed size: __ARCHIVE_SIZE_COMPRESSED__
+- Deduplicated size: __ARCHIVE_SIZE_DEDUP__
+
+Repository totals (all archives):
+- Original size: __REPO_SIZE_ORIGINAL__
+- Compressed size: __REPO_SIZE_COMPRESSED__
+- Deduplicated size: __REPO_SIZE_DEDUP__
+
 Warnings/Errors (__WARN_COUNT__):
 __WARN_LINES__
 
@@ -238,6 +260,12 @@ EOF_BODY
   body=${body//__BORG_EXIT__/${BORG_EXIT}}
   body=${body//__PRUNE_EXIT__/${PRUNE_EXIT}}
   body=${body//__SNAP_EXIT__/${SNAP_EXIT}}
+  body=${body//__ARCHIVE_SIZE_ORIGINAL__/${ARCHIVE_SIZE_ORIGINAL}}
+  body=${body//__ARCHIVE_SIZE_COMPRESSED__/${ARCHIVE_SIZE_COMPRESSED}}
+  body=${body//__ARCHIVE_SIZE_DEDUP__/${ARCHIVE_SIZE_DEDUP}}
+  body=${body//__REPO_SIZE_ORIGINAL__/${REPO_SIZE_ORIGINAL}}
+  body=${body//__REPO_SIZE_COMPRESSED__/${REPO_SIZE_COMPRESSED}}
+  body=${body//__REPO_SIZE_DEDUP__/${REPO_SIZE_DEDUP}}
   body=${body//__WARN_COUNT__/${warn_count}}
   body=${body//__WARN_LINES__/${warn_lines}}
   body=${body//__LOG__/${RUN_LOG}}
@@ -252,6 +280,12 @@ EOF_BODY
   h_borg_exit=$(html_escape "${BORG_EXIT}")
   h_prune_exit=$(html_escape "${PRUNE_EXIT}")
   h_snap_exit=$(html_escape "${SNAP_EXIT}")
+  h_archive_size_original=$(html_escape "${ARCHIVE_SIZE_ORIGINAL}")
+  h_archive_size_compressed=$(html_escape "${ARCHIVE_SIZE_COMPRESSED}")
+  h_archive_size_dedup=$(html_escape "${ARCHIVE_SIZE_DEDUP}")
+  h_repo_size_original=$(html_escape "${REPO_SIZE_ORIGINAL}")
+  h_repo_size_compressed=$(html_escape "${REPO_SIZE_COMPRESSED}")
+  h_repo_size_dedup=$(html_escape "${REPO_SIZE_DEDUP}")
   h_warn_count=$(html_escape "${warn_count}")
   h_warn_lines=$(html_escape "${warn_lines}")
   h_log=$(html_escape "${RUN_LOG}")
@@ -279,6 +313,16 @@ EOF_BODY
       <tr><td style="padding:4px 0;color:#6b7280;">borg prune</td><td style="padding:4px 0;">__PRUNE_EXIT__</td></tr>
       <tr><td style="padding:4px 0;color:#6b7280;">snapshot</td><td style="padding:4px 0;">__SNAP_EXIT__</td></tr>
     </table>
+    <div style="margin-top:12px;font-weight:600;font-size:14px;">Sizes</div>
+    <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:14px;">
+      <tr><td style="padding:4px 0;color:#6b7280;width:200px;">Archive original</td><td style="padding:4px 0;">__ARCHIVE_SIZE_ORIGINAL__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Archive compressed</td><td style="padding:4px 0;">__ARCHIVE_SIZE_COMPRESSED__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Archive deduplicated</td><td style="padding:4px 0;">__ARCHIVE_SIZE_DEDUP__</td></tr>
+      <tr><td colspan="2" style="padding:8px 0 2px;color:#6b7280;font-weight:600;">Repository totals (all archives)</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;width:200px;">Original size</td><td style="padding:4px 0;">__REPO_SIZE_ORIGINAL__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Compressed size</td><td style="padding:4px 0;">__REPO_SIZE_COMPRESSED__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Deduplicated size</td><td style="padding:4px 0;">__REPO_SIZE_DEDUP__</td></tr>
+    </table>
     <div style="margin-top:12px;font-weight:600;font-size:14px;">Warnings/Errors (__WARN_COUNT__)</div>
     <pre style="margin-top:6px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:8px;font-size:12px;white-space:pre-wrap;">__WARN_LINES__</pre>
     <div style="margin-top:12px;color:#6b7280;font-size:13px;">Log: __LOG__</div>
@@ -298,6 +342,12 @@ EOF_HTML
   html_body=${html_body//__BORG_EXIT__/${h_borg_exit}}
   html_body=${html_body//__PRUNE_EXIT__/${h_prune_exit}}
   html_body=${html_body//__SNAP_EXIT__/${h_snap_exit}}
+  html_body=${html_body//__ARCHIVE_SIZE_ORIGINAL__/${h_archive_size_original}}
+  html_body=${html_body//__ARCHIVE_SIZE_COMPRESSED__/${h_archive_size_compressed}}
+  html_body=${html_body//__ARCHIVE_SIZE_DEDUP__/${h_archive_size_dedup}}
+  html_body=${html_body//__REPO_SIZE_ORIGINAL__/${h_repo_size_original}}
+  html_body=${html_body//__REPO_SIZE_COMPRESSED__/${h_repo_size_compressed}}
+  html_body=${html_body//__REPO_SIZE_DEDUP__/${h_repo_size_dedup}}
   html_body=${html_body//__WARN_COUNT__/${h_warn_count}}
   html_body=${html_body//__WARN_LINES__/${h_warn_lines}}
   html_body=${html_body//__LOG__/${h_log}}
@@ -408,6 +458,25 @@ borg create \
 BORG_EXIT=$?
 set -e
 
+if [ "${BORG_EXIT}" -le 1 ]; then
+  set +e
+  ARCHIVE_INFO=$(borg list "${BORG_REPO}" \
+    --lock-wait "${BORG_LOCK_WAIT}" \
+    --format '{archive}\t{size}\t{csize}\t{dsize}\n' 2>/dev/null \
+    | awk -F '\t' -v a="${ARCHIVE_NAME}" '$1 == a {print; exit}')
+  LIST_EXIT=$?
+  set -e
+
+  if [ "${LIST_EXIT}" -eq 0 ] && [ -n "${ARCHIVE_INFO}" ]; then
+    IFS=$'\t' read -r _ ARCHIVE_SIZE_ORIGINAL ARCHIVE_SIZE_COMPRESSED ARCHIVE_SIZE_DEDUP <<<"${ARCHIVE_INFO}"
+    ARCHIVE_SIZE_ORIGINAL=${ARCHIVE_SIZE_ORIGINAL:-n/a}
+    ARCHIVE_SIZE_COMPRESSED=${ARCHIVE_SIZE_COMPRESSED:-n/a}
+    ARCHIVE_SIZE_DEDUP=${ARCHIVE_SIZE_DEDUP:-n/a}
+  else
+    log "WARNING: Unable to read archive size info for ${ARCHIVE_NAME}."
+  fi
+fi
+
 ############################################################
 # 3. Prune Old Backups
 ############################################################
@@ -422,6 +491,27 @@ borg prune -v "${BORG_REPO}" \
   --keep-monthly=12
 PRUNE_EXIT=$?
 set -e
+
+if [ "${PRUNE_EXIT}" -le 1 ]; then
+  set +e
+  INFO_OUTPUT=$(borg info --lock-wait "${BORG_LOCK_WAIT}" "${BORG_REPO}" 2>/dev/null)
+  INFO_EXIT=$?
+  set -e
+
+  if [ "${INFO_EXIT}" -eq 0 ] && [ -n "${INFO_OUTPUT}" ]; then
+    REPO_SIZES=$(printf '%s\n' "${INFO_OUTPUT}" | awk '/^All archives:/ {print $3" "$4"\t"$5" "$6"\t"$7" "$8; exit}')
+    if [ -n "${REPO_SIZES}" ]; then
+      IFS=$'\t' read -r REPO_SIZE_ORIGINAL REPO_SIZE_COMPRESSED REPO_SIZE_DEDUP <<<"${REPO_SIZES}"
+      REPO_SIZE_ORIGINAL=${REPO_SIZE_ORIGINAL:-n/a}
+      REPO_SIZE_COMPRESSED=${REPO_SIZE_COMPRESSED:-n/a}
+      REPO_SIZE_DEDUP=${REPO_SIZE_DEDUP:-n/a}
+    else
+      log "WARNING: Unable to parse repository totals from borg info."
+    fi
+  else
+    log "WARNING: Unable to read repository totals from borg info."
+  fi
+fi
 
 ############################################################
 # 4. Destroy ZFS Snapshot
