@@ -98,6 +98,28 @@ sudo make status
 ```
 > `make status` shows systemd service/timer state for human review.
 
+## Updating an Existing Install
+If the repo is already installed on a host, pulling the latest Git changes is not enough by itself. The systemd units run the installed copies under `/usr/local/sbin/borg`, so you need to reinstall after updating the checkout.
+
+1) Pull the latest changes:
+```bash
+git pull
+```
+2) Reinstall scripts and units:
+```bash
+sudo make install
+```
+3) Optional immediate validation:
+```bash
+sudo make check
+sudo systemctl start borg-check.service
+```
+
+Notes:
+- `sudo make install` preserves the existing `/usr/local/sbin/borg/borg.env`.
+- You do not need `sudo make enable` again unless timers were never enabled or you intentionally disabled them.
+- The updated behavior takes effect on the next service run after `sudo make install`.
+
 ## Validate and test
 ### Status:
 - `systemctl status borg-backup.service borg-check.service borg-check-verify.service borg-log-cleanup.service`
