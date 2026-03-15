@@ -34,6 +34,7 @@ Key actions:
 - Validates repo availability and mountpoints.
 - Runs `borg check` with lock-wait.
 - Sends a structured email (text + HTML) and attaches the log.
+- Supports one-off simulated email testing via `TEST_STATUS=ok|warn|fail|skip` without running Borg.
 
 Primary inputs:
 - `BORG_REPO`, `BORG_LOCK_WAIT`.
@@ -49,6 +50,7 @@ Key actions:
 - Validates repo availability and mountpoints.
 - Runs `borg check --verify-data` with lock-wait.
 - Sends a structured email (text + HTML) and attaches the log.
+- Supports one-off simulated email testing via `TEST_STATUS=ok|warn|fail|skip` without running Borg.
 
 Primary inputs:
 - `BORG_REPO`, `BORG_LOCK_WAIT`.

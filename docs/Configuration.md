@@ -21,6 +21,7 @@ Common variables:
 - `LOG_RETENTION_DAYS`: log cleanup retention.
 - `MAIL_TO`, `MAIL_FROM`: email routing for `msmtp`.
 - `MAIL_ON_SUCCESS`, `MAIL_ON_FAILURE`, `MAIL_ON_SKIP`: notification controls.
+- `TEST_STATUS` / `BORG_TEST_STATUS`: one-off manual email test mode for `borg_check.sh` and `borg_check_verify.sh` (`ok`, `warn`, `fail`, `skip`). Do not store these in the runtime env file.
 
 ## Runtime env file
 The runtime file is `/usr/local/sbin/borg/borg.env`.

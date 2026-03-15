@@ -111,6 +111,19 @@ sudo make status
 - journal via `journalctl -u borg-backup.service -n 100`
 > Logs older than `LOG_RETENTION_DAYS` are deleted by `borg-log-cleanup.timer`.
 
+### Email template test (no real Borg run):
+- Simulate a check email without touching the real repo by setting one-off `TEST_STATUS=ok|warn|fail|skip`.
+- Do not store `TEST_STATUS` in `/usr/local/sbin/borg/borg.env`; use it only on the command line for manual tests.
+- Example success email test:
+```bash
+sudo env \
+  TEST_STATUS=ok \
+  LOG_DIR=/tmp/borg-email-test \
+  ./scripts/borg_check.sh
+```
+- Change `TEST_STATUS=warn`, `fail`, or `skip` to exercise the other templates.
+- Use `./scripts/borg_check_verify.sh` instead to test the monthly verify-data email template.
+
 ### Exit codes:
 - Borg: `0` success; `1` completed with warnings (files changed, skipped, or unreadable); `2` fatal error (backup/check failed).
 - Snapshot commands: `0` success; non-zero means snapshot create/destroy failed.

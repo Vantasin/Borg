@@ -25,8 +25,11 @@ MAIL_FROM="${MAIL_FROM:-borg@localhost}"
 MAIL_ON_SUCCESS="${MAIL_ON_SUCCESS:-true}"
 MAIL_ON_FAILURE="${MAIL_ON_FAILURE:-true}"
 MAIL_ON_SKIP="${MAIL_ON_SKIP:-true}"
+TEST_STATUS="$(normalize_test_status "${TEST_STATUS:-${BORG_TEST_STATUS:-}}")"
 
-require_passphrase
+if [ -z "${TEST_STATUS}" ]; then
+  require_passphrase
+fi
 setup_logging "${JOB_NAME}"
 
 RUN_START_EPOCH=$(date +%s)
@@ -47,6 +50,8 @@ finalize() {
   local final_exit
   local warn_count
   local warn_lines
+  local check_result
+  local note_text
   local subject
   local body
   local html_body
@@ -56,11 +61,14 @@ finalize() {
   local h_start
   local h_end
   local h_duration
+  local h_check_result
   local h_check_exit
   local h_warn_count
   local h_warn_lines
+  local h_note
   local h_log
   local badge_color
+  local note_section_html
   local attachment
 
   run_end_epoch=$(date +%s)
@@ -188,6 +196,25 @@ EOF_HTML
     fi
   fi
 
+  check_result=$(borg_check_exit_summary "${CHECK_EXIT}")
+  note_text=""
+  if [ -n "${TEST_STATUS}" ]; then
+    note_text="Email test mode: borg was not executed; this is a simulated result (TEST_STATUS=${TEST_STATUS})."
+  elif [ "${CHECK_EXIT}" -eq 0 ] && [ "${warn_count}" -eq 0 ]; then
+    note_text="Successful Borg checks are often silent, so a short log is expected unless Borg reports warnings or errors."
+  fi
+
+  log "Check summary: status=${status}, borg_exit=${CHECK_EXIT}, warnings=${warn_count}, duration=${run_duration}"
+  if [ -n "${note_text}" ]; then
+    log "${note_text}"
+  fi
+
+  if [ "${status}" = "OK" ]; then
+    log "===== Borg Check Finished Successfully: ${run_end_human} ====="
+  else
+    log "===== Borg Check Finished With Errors: ${run_end_human} ====="
+  fi
+
   subject="[${status}] Borg check on ${HOSTNAME}"
   body=$(cat <<'EOF_BODY'
 Borg Check Summary
@@ -199,6 +226,11 @@ Start: __START__
 End: __END__
 Duration: __DURATION__
 
+Check result: __CHECK_RESULT__
+Borg exit code: __CHECK_EXIT__
+Warnings/Errors: __WARN_COUNT__
+__NOTE_BLOCK__
+
 Log: __LOG__
 EOF_BODY
 )
@@ -208,12 +240,15 @@ EOF_BODY
   body=${body//__START__/${RUN_START_HUMAN}}
   body=${body//__END__/${run_end_human}}
   body=${body//__DURATION__/${run_duration}}
-  body=${body//__LOG__/${RUN_LOG}}
-
-  if [ "${CHECK_EXIT}" -ne 0 ]; then
-    body+=$'\nExit code: '"${CHECK_EXIT}"$'\n'
-    body+="Legend: Borg 0=success; 1=completed with warnings (files changed, skipped, or unreadable); 2=fatal error."$'\n'
+  body=${body//__CHECK_RESULT__/${check_result}}
+  body=${body//__CHECK_EXIT__/${CHECK_EXIT}}
+  body=${body//__WARN_COUNT__/${warn_count}}
+  if [ -n "${note_text}" ]; then
+    body=${body//__NOTE_BLOCK__/Note: ${note_text}}
+  else
+    body=${body//__NOTE_BLOCK__/}
   fi
+  body=${body//__LOG__/${RUN_LOG}}
 
   if [ "${warn_count}" -gt 0 ]; then
     body+=$'\nWarnings/Errors ('"${warn_count}"'):\n'
@@ -226,9 +261,11 @@ EOF_BODY
   h_start=$(html_escape "${RUN_START_HUMAN}")
   h_end=$(html_escape "${run_end_human}")
   h_duration=$(html_escape "${run_duration}")
+  h_check_result=$(html_escape "${check_result}")
   h_check_exit=$(html_escape "${CHECK_EXIT}")
   h_warn_count=$(html_escape "${warn_count}")
   h_warn_lines=$(html_escape "${warn_lines}")
+  h_note=$(html_escape "${note_text}")
   h_log=$(html_escape "${RUN_LOG}")
   badge_color=$(status_color "${status}")
 
@@ -246,8 +283,11 @@ EOF_BODY
       <tr><td style="padding:4px 0;color:#6b7280;">Start</td><td style="padding:4px 0;">__START__</td></tr>
       <tr><td style="padding:4px 0;color:#6b7280;">End</td><td style="padding:4px 0;">__END__</td></tr>
       <tr><td style="padding:4px 0;color:#6b7280;">Duration</td><td style="padding:4px 0;">__DURATION__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Check result</td><td style="padding:4px 0;">__CHECK_RESULT__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Borg exit code</td><td style="padding:4px 0;">__CHECK_EXIT__</td></tr>
+      <tr><td style="padding:4px 0;color:#6b7280;">Warnings/Errors</td><td style="padding:4px 0;">__WARN_COUNT__</td></tr>
     </table>
-    __EXIT_SECTION_HTML__
+    __NOTE_SECTION_HTML__
     __WARN_SECTION_HTML__
     <div style="margin-top:12px;color:#6b7280;font-size:13px;">Log: __LOG__</div>
   </div>
@@ -262,19 +302,18 @@ EOF_HTML
   html_body=${html_body//__START__/${h_start}}
   html_body=${html_body//__END__/${h_end}}
   html_body=${html_body//__DURATION__/${h_duration}}
+  html_body=${html_body//__CHECK_RESULT__/${h_check_result}}
+  html_body=${html_body//__CHECK_EXIT__/${h_check_exit}}
+  html_body=${html_body//__WARN_COUNT__/${h_warn_count}}
   html_body=${html_body//__LOG__/${h_log}}
 
-  exit_section_html=""
-  if [ "${CHECK_EXIT}" -ne 0 ]; then
-    exit_section_html=$(cat <<'EOF_EXIT_HTML'
-    <div style="margin-top:12px;font-weight:600;font-size:14px;">Exit code</div>
-    <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:14px;">
-      <tr><td style="padding:4px 0;color:#6b7280;width:140px;">borg check</td><td style="padding:4px 0;">__CHECK_EXIT__</td></tr>
-    </table>
-    <div style="margin-top:6px;color:#6b7280;font-size:12px;">Legend: Borg 0=success; 1=completed with warnings (files changed, skipped, or unreadable); 2=fatal error.</div>
-EOF_EXIT_HTML
+  note_section_html=""
+  if [ -n "${note_text}" ]; then
+    note_section_html=$(cat <<'EOF_NOTE_HTML'
+    <div style="margin-top:12px;color:#6b7280;font-size:12px;">__NOTE__</div>
+EOF_NOTE_HTML
 )
-    exit_section_html=${exit_section_html//__CHECK_EXIT__/${h_check_exit}}
+    note_section_html=${note_section_html//__NOTE__/${h_note}}
   fi
 
   warn_section_html=""
@@ -288,7 +327,7 @@ EOF_WARN_HTML
     warn_section_html=${warn_section_html//__WARN_LINES__/${h_warn_lines}}
   fi
 
-  html_body=${html_body//__EXIT_SECTION_HTML__/${exit_section_html}}
+  html_body=${html_body//__NOTE_SECTION_HTML__/${note_section_html}}
   html_body=${html_body//__WARN_SECTION_HTML__/${warn_section_html}}
 
   attachment="${RUN_LOG}"
@@ -323,18 +362,17 @@ EOF_WARN_HTML
     fi
   fi
 
-  if [ "${status}" = "OK" ]; then
-    log "===== Borg Check Finished Successfully: $(date '+%a %d %b %Y %H:%M:%S %Z') ====="
-  else
-    log "===== Borg Check Finished With Errors: $(date '+%a %d %b %Y %H:%M:%S %Z') ====="
-  fi
-
   exit "${final_exit}"
 }
 
 trap 'finalize $?' EXIT
 
 log "===== Borg Check Started: ${RUN_START_HUMAN} ====="
+
+if [ -n "${TEST_STATUS}" ]; then
+  simulate_check_test_run "${TEST_STATUS}" "borg check"
+  exit $?
+fi
 
 ############################################################
 # Ensure repository location is reachable
@@ -360,7 +398,9 @@ fi
 ############################################################
 # Begin Borg Check
 ############################################################
+log "Running borg check against ${BORG_REPO} with lock wait ${BORG_LOCK_WAIT}s."
 set +e
 borg check --lock-wait "${BORG_LOCK_WAIT}" "${BORG_REPO}"
 CHECK_EXIT=$?
 set -e
+log "borg check exited with code ${CHECK_EXIT} ($(borg_check_exit_summary "${CHECK_EXIT}"))."

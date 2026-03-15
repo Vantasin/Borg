@@ -219,6 +219,53 @@ collect_warnings() {
   fi
 }
 
+borg_check_exit_summary() {
+  case "$1" in
+    0) echo "Completed successfully" ;;
+    1) echo "Completed with warnings (files changed, skipped, or unreadable)" ;;
+    2) echo "Failed with a fatal error" ;;
+    *) echo "Exited with code $1" ;;
+  esac
+}
+
+normalize_test_status() {
+  printf '%s' "${1,,}"
+}
+
+simulate_check_test_run() {
+  local test_status="$1"
+  local check_label="$2"
+
+  case "${test_status}" in
+    ok)
+      log "TEST_STATUS=${test_status} set; simulating ${check_label} for email test."
+      log "Simulated ${check_label} completed successfully."
+      CHECK_EXIT=0
+      return 0
+      ;;
+    warn)
+      log "TEST_STATUS=${test_status} set; simulating ${check_label} for email test."
+      log "WARNING: Simulated warning from ${check_label} for email test."
+      CHECK_EXIT=1
+      return 0
+      ;;
+    fail)
+      log "TEST_STATUS=${test_status} set; simulating ${check_label} for email test."
+      log "ERROR: Simulated fatal error from ${check_label} for email test."
+      CHECK_EXIT=2
+      return 2
+      ;;
+    skip)
+      skip_run "Simulated skip for ${check_label} email test (TEST_STATUS=${test_status})."
+      ;;
+    *)
+      log "ERROR: Unsupported TEST_STATUS '${test_status}'. Expected one of: ok, warn, fail, skip."
+      CHECK_EXIT=2
+      return 2
+      ;;
+  esac
+}
+
 skip_run() {
   # Mark run as skipped and exit 0 so timers retry without failure spam.
   SKIPPED=1
