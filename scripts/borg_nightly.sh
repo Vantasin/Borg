@@ -24,6 +24,10 @@ BORG_REPO="${BORG_REPO:-/tank/Secure/Borg/backup-repo}"
 REPO_DATASET="${REPO_DATASET:-}"
 ARCHIVE_PREFIX="${ARCHIVE_PREFIX:-backup}"
 BORG_LOCK_WAIT="${BORG_LOCK_WAIT:-3600}"
+BORG_KEEP_DAILY="${BORG_KEEP_DAILY:-7}"
+BORG_KEEP_WEEKLY="${BORG_KEEP_WEEKLY:-4}"
+BORG_KEEP_MONTHLY="${BORG_KEEP_MONTHLY:-12}"
+BORG_KEEP_YEARLY="${BORG_KEEP_YEARLY:-0}"
 
 LOG_DIR="${LOG_DIR:-/var/log/borg}"
 LOG_RUN_DIR="${LOG_RUN_DIR:-${LOG_DIR}/runs}"
@@ -438,6 +442,20 @@ trap 'finalize $?' EXIT
 
 log "===== Borg Backup Started: ${RUN_START_HUMAN} ====="
 
+for retention_var in \
+  BORG_KEEP_DAILY \
+  BORG_KEEP_WEEKLY \
+  BORG_KEEP_MONTHLY \
+  BORG_KEEP_YEARLY; do
+  retention_value="${!retention_var}"
+  if ! [[ "${retention_value}" =~ ^[0-9]+$ ]]; then
+    log "ERROR: ${retention_var} must be a non-negative integer; got '${retention_value}'."
+    exit 1
+  fi
+done
+
+log "Archive retention: daily=${BORG_KEEP_DAILY}, weekly=${BORG_KEEP_WEEKLY}, monthly=${BORG_KEEP_MONTHLY}, yearly=${BORG_KEEP_YEARLY}"
+
 ############################################################
 # Ensure required datasets are mounted before running
 ############################################################
@@ -508,9 +526,10 @@ borg prune -v "${BORG_REPO}" \
   --list \
   --stats \
   --lock-wait "${BORG_LOCK_WAIT}" \
-  --keep-daily=7 \
-  --keep-weekly=4 \
-  --keep-monthly=12
+  --keep-daily="${BORG_KEEP_DAILY}" \
+  --keep-weekly="${BORG_KEEP_WEEKLY}" \
+  --keep-monthly="${BORG_KEEP_MONTHLY}" \
+  --keep-yearly="${BORG_KEEP_YEARLY}"
 PRUNE_EXIT=$?
 set -e
 

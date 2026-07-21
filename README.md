@@ -117,6 +117,7 @@ sudo systemctl start borg-check.service
 
 Notes:
 - `sudo make install` preserves the existing `/usr/local/sbin/borg/borg.env`.
+- Existing env files do not need the archive-retention variables; absent values use the defaults `7/4/12/0`. Add them manually to customize retention because `make install` preserves `borg.env`.
 - You do not need `sudo make enable` again unless timers were never enabled or you intentionally disabled them.
 - The updated behavior takes effect on the next service run after `sudo make install`.
 
@@ -204,8 +205,14 @@ Key variables in `/usr/local/sbin/borg/borg.env`:
 - `LOG_RETENTION_DAYS` — delete per-run logs older than this (default `90`)
 - `ARCHIVE_PREFIX` — archive name prefix (default `backup`)
 - `BORG_LOCK_WAIT` — seconds to wait for repo lock (default `3600`)
+- `BORG_KEEP_DAILY` — daily archive retention count (default `7`)
+- `BORG_KEEP_WEEKLY` — weekly archive retention count (default `4`)
+- `BORG_KEEP_MONTHLY` — monthly archive retention count (default `12`)
+- `BORG_KEEP_YEARLY` — yearly archive retention count (default `0`, disabled)
 - `MAIL_TO` / `MAIL_FROM` — msmtp notification addresses
 - `MAIL_ON_SUCCESS` / `MAIL_ON_FAILURE` / `MAIL_ON_SKIP` — `true/false` (or `1/0`) to send or suppress
+
+Archive-retention values must be non-negative integers; `0` disables the corresponding retention tier.
 
 ## Borg Passphrase Handling
 - Default (recommended): env file at `/usr/local/sbin/borg/borg.env` (0600 root:root), loaded by systemd and scripts.
@@ -226,7 +233,7 @@ sudo systemctl start borg-backup.service
 - To rebuild automation:
   - This Git repo (scripts, units, Makefile)
   - Systemd units: `borg-backup.service|timer`, `borg-check.service|timer`, `borg-check-verify.service|timer`
-  - Env template: `borg.env.example`; runtime config at `/usr/local/sbin/borg/borg.env` (`BORG_PASSPHRASE`, `BORG_REPO`, `SOURCE_PATH`, `ZFS_DATASET`, optional `REPO_DATASET`, `LOG_DIR`, `MAIL_TO`/`MAIL_FROM`, `MAIL_ON_SUCCESS`/`MAIL_ON_FAILURE`)
+  - Env template: `borg.env.example`; runtime config at `/usr/local/sbin/borg/borg.env` (`BORG_PASSPHRASE`, `BORG_REPO`, `SOURCE_PATH`, `ZFS_DATASET`, optional `REPO_DATASET`, `BORG_KEEP_*`, `LOG_DIR`, `MAIL_TO`/`MAIL_FROM`, `MAIL_ON_SUCCESS`/`MAIL_ON_FAILURE`)
 - Recommended tests:
   - Periodic restore to a disposable directory (e.g., quarterly)
   - Monitor timers: nightly backup, `borg check` on 1st-3rd Saturdays, `borg check --verify-data` on the 4th Saturday

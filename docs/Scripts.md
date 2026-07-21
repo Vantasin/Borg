@@ -14,13 +14,14 @@ Key actions:
 - Validates ZFS datasets and mountpoints.
 - Creates a ZFS snapshot for a consistent backup source.
 - Runs `borg create` with stats and lock-wait.
-- Runs `borg prune` with retention rules and stats.
+- Validates and logs the archive-retention policy, then runs `borg prune` with the configured daily, weekly, monthly, and yearly rules plus stats.
 - Collects post-prune size summaries from `borg info`.
 - Sends a structured email (text + HTML) and attaches the full log.
 - Removes the snapshot after backup.
 
 Primary inputs:
 - `BORG_REPO`, `SOURCE_PATH`, `ZFS_DATASET`, `ARCHIVE_PREFIX`, `BORG_LOCK_WAIT`.
+- `BORG_KEEP_DAILY`, `BORG_KEEP_WEEKLY`, `BORG_KEEP_MONTHLY`, `BORG_KEEP_YEARLY`.
 
 Primary outputs:
 - Per-run log in `/var/log/borg/runs/backup_<timestamp>.log`.
